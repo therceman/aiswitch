@@ -1,0 +1,41 @@
+{
+  "name": "aiswitch",
+  "version": "0.1.0",
+  "description": "Cross-platform CLI for launching profile-isolated opencode/codex instances",
+  "main": "./dist/index.js",
+  "bin": {
+    "aiswitch": "./dist/aiswitch.cjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepare": "husky",
+    "test": "node node_modules/jest/bin/jest.js",
+    "lint": "eslint src/**/*.ts test/**/*.ts",
+    "format": "prettier --write src/**/*.ts test/**/*.ts",
+    "format:check": "prettier --check src/**/*.ts test/**/*.ts",
+    "audit": "npm audit",
+    "verify": "npm run build && npm run lint && npm run format:check && npm test && npm audit"
+  },
+  "dependencies": {
+    "cross-spawn": "7.0.6",
+    "enquirer": "^2.4.1",
+    "yaml": "2.8.3",
+    "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "@types/cross-spawn": "6.0.6",
+    "@types/jest": "30.0.0",
+    "@types/node": "22.15.21",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "8.57.1",
+    "husky": "^9.1.7",
+    "jest": "30.3.0",
+    "prettier": "3.8.3",
+    "ts-jest": "29.4.0",
+    "typescript": "5.9.3"
+  }
+}
