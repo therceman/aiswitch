@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { runCommand } from './commands/run';
 import { listCommand, listCommandJson } from './commands/list';
 import { whichCommand } from './commands/which';
@@ -101,6 +102,15 @@ function parseArgs(argv: string[]): ParseResult {
   const profile = positional[0];
   const cmdArgs = positional.slice(1);
 
+  // Map short flags to long forms for known options
+  if (flags.e) flags.executable = flags.e;
+  if (flags.k) flags.apiKey = flags.k;
+  if (flags.d) flags.dir = flags.d;
+  if (flags.f) flags.force = flags.f;
+  if (flags.m) flags.mode = flags.m;
+  if (flags.s) flags.session = flags.s;
+  if (flags.j) flags.json = flags.j;
+
   return {
     command,
     args: cmdArgs,
@@ -125,6 +135,7 @@ Commands:
   which <profile>   Show resolved runtime details
   doctor [profile]  Run diagnostics
   run <profile>     Run a profile (default command)
+  select            Interactive profile selector
   help              Show this help message
 
 Examples:
@@ -220,3 +231,8 @@ async function runCli(): Promise<void> {
 }
 
 export { runCli, parseArgs };
+
+// Invoke CLI when run as script
+if (require.main === module) {
+  runCli();
+}

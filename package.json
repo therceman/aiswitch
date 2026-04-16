@@ -4,7 +4,7 @@
   "description": "Cross-platform CLI for launching profile-isolated opencode/codex instances",
   "main": "./dist/index.js",
   "bin": {
-    "aiswitch": "./dist/aiswitch.cjs"
+    "aiswitch": "./dist/cli.js"
   },
   "engines": {
     "node": ">=18"
