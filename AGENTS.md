@@ -51,3 +51,4 @@ Env vars with path-like values (`HOME`, `XDG_*`, `*_HOME`, `*_CONFIG_DIR`) get `
 - **Flags**: Support both short (`-f`) and long (`--force`) forms; add `--json` for machine-readable output
 - **Config**: Respect `AIUSE_CONFIG` env var override in all commands
 - **Env vars with path-like values**: `HOME`, `XDG_*`, `*_HOME`, `*_CONFIG_DIR` get `~` expanded
+- **No hardcoded harnesses**: Never hardcode harness names (opencode/codex) in prompts/text. Use `src/utils/harness.ts` and `src/utils/detect-harnesses.ts` for harness-aware messages. Harness detection only for PATH checks.

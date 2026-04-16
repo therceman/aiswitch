@@ -8,6 +8,11 @@ export interface SpawnOptions {
   env?: Record<string, string>;
 }
 
+export interface SpawnResult {
+  exitCode: number;
+  output: string;
+}
+
 export function spawnProcess(options: SpawnOptions): number {
   const execPath = findExecutablePath(options.executable);
 

@@ -6,6 +6,8 @@ import { doctorCommand } from './commands/doctor';
 import { initCommand } from './commands/init';
 import { createCommand } from './commands/create';
 import { selectCommand } from './commands/select';
+import * as path from 'path';
+import * as fs from 'fs';
 
 interface ParseResult {
   command: string;
@@ -37,6 +39,18 @@ function parseArgs(argv: string[]): ParseResult {
         profile: undefined,
         extraArgs: [],
       };
+    }
+
+    if (command === '--help' || command === '-h') {
+      showHelp();
+      process.exit(0);
+    }
+
+    if (command === '--version' || command === '-v') {
+      const pkgPath = path.join(__dirname, '..', 'package.json');
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+      console.log(`aiswitch v${pkg.version}`);
+      process.exit(0);
     }
 
     const dashIndex = args.indexOf('--');
@@ -165,16 +179,12 @@ async function runCli(): Promise<void> {
         break;
 
       case 'create':
-        if (!profile) {
-          console.error('Error: Profile name required');
-          console.error('Usage: aiswitch create <name>');
-          process.exit(1);
-        }
         await createCommand(
           profile,
           flags.executable as string | undefined,
           flags.apiKey as string | undefined,
-          flags.dir as string | undefined
+          flags.dir as string | undefined,
+          flags.force as boolean | undefined
         );
         break;
 
@@ -207,8 +217,8 @@ async function runCli(): Promise<void> {
           process.exit(1);
         }
         {
-          const code = await runCommand(profile, extraArgs);
-          process.exit(code);
+          const exitCode = await runCommand(profile, extraArgs);
+          process.exit(exitCode);
         }
 
       case 'help':

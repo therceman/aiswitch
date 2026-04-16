@@ -1,8 +1,29 @@
 import { execSync } from 'child_process';
 import * as path from 'path';
+import * as os from 'os';
+import * as fs from 'fs';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 const CLI_PATH = path.join(__dirname, '..', 'dist', 'cli.js');
+const testDir = path.join(os.tmpdir(), 'aiswitch-integration-test-' + Date.now());
+const testConfigPath = path.join(testDir, 'config.yaml');
+
+beforeAll(() => {
+  fs.mkdirSync(testDir, { recursive: true });
+  fs.writeFileSync(
+    testConfigPath,
+    'version: 1\nprofiles:\n  myprofile:\n    executable: node\n',
+    'utf-8'
+  );
+});
+
+afterAll(() => {
+  try {
+    fs.rmSync(testDir, { recursive: true, force: true });
+  } catch {
+    // Ignore cleanup errors
+  }
+});
 
 describe('CLI Integration', () => {
   describe('help command', () => {
@@ -79,7 +100,11 @@ describe('CLI Integration', () => {
 
     it('shows error when profile not found', () => {
       try {
-        execSync(`node ${CLI_PATH} which myprofile`, { encoding: 'utf8', stdio: 'pipe' });
+        execSync(`node ${CLI_PATH} which nonexistentprofile`, {
+          encoding: 'utf8',
+          stdio: 'pipe',
+          env: { ...process.env, AIUSE_CONFIG: testConfigPath },
+        });
         fail('Should have thrown');
       } catch (e: any) {
         expect(e.stderr).toContain('Profile not found');
@@ -114,13 +139,11 @@ describe('CLI Integration', () => {
   });
 
   describe('create command', () => {
-    it('shows error when profile not specified', () => {
+    it('runs create interactively when no profile specified', () => {
       try {
-        execSync(`node ${CLI_PATH} create`, { encoding: 'utf8', stdio: 'pipe' });
-        fail('Should have thrown');
+        execSync(`node ${CLI_PATH} create`, { encoding: 'utf8', stdio: 'pipe', timeout: 1000 });
       } catch (e: any) {
-        expect(e.stderr).toContain('Profile name required');
-        expect(e.stderr).toContain('Usage: aiswitch create <name>');
+        expect(e.stderr).toContain('Profile name');
       }
     });
   });
@@ -138,7 +161,11 @@ describe('CLI Integration', () => {
 
     it('shows error when profile not found', () => {
       try {
-        execSync(`node ${CLI_PATH} run nonexistentprofile`, { encoding: 'utf8', stdio: 'pipe' });
+        execSync(`node ${CLI_PATH} run nonexistentprofile`, {
+          encoding: 'utf8',
+          stdio: 'pipe',
+          env: { ...process.env, AIUSE_CONFIG: testConfigPath },
+        });
         fail('Should have thrown');
       } catch (e: any) {
         expect(e.stderr).toContain('Profile not found');

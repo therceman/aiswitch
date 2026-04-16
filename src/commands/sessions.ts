@@ -7,6 +7,7 @@ interface SessionEntry {
   name?: string;
   profile: string;
   lastUsed: number;
+  cwd?: string;
 }
 
 interface SessionsData {
@@ -43,7 +44,7 @@ function saveSessions(sessions: SessionsData): void {
   }
 }
 
-export function addSession(profile: string, sessionId: string, name?: string): void {
+export function addSession(profile: string, sessionId: string, name?: string, cwd?: string): void {
   const sessions = loadSessions();
   if (!sessions[profile]) {
     sessions[profile] = [];
@@ -55,12 +56,16 @@ export function addSession(profile: string, sessionId: string, name?: string): v
     if (name) {
       sessions[profile][existingIndex].name = name;
     }
+    if (cwd) {
+      sessions[profile][existingIndex].cwd = cwd;
+    }
   } else {
     sessions[profile].push({
       id: sessionId,
       name,
       profile,
       lastUsed: Date.now(),
+      cwd,
     });
   }
 

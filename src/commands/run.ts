@@ -13,7 +13,7 @@ export async function runCommand(profileName: string, extraArgs: string[]): Prom
   if (!profile) {
     const availableProfiles = Object.keys(config.profiles).join(', ');
     throw new Error(
-      `Profile not found: ${profileName}\nAvailable profiles: ${availableProfiles || 'none'}\nRun 'aiswitch init' to create a profile.`
+      `Profile not found: ${profileName}\nAvailable profiles: ${availableProfiles || 'none'}\nRun 'aiswitch create <name>' to create a new profile.`
     );
   }
 

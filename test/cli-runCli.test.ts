@@ -137,7 +137,13 @@ describe('runCli', () => {
     await runCli();
 
     const { createCommand } = require('../src/commands/create');
-    expect(createCommand).toHaveBeenCalledWith('myprofile', undefined, undefined, undefined);
+    expect(createCommand).toHaveBeenCalledWith(
+      'myprofile',
+      undefined,
+      undefined,
+      undefined,
+      undefined
+    );
   });
 
   it('executes create command with all flags', async () => {
@@ -152,20 +158,26 @@ describe('runCli', () => {
       'sk-123',
       '-d',
       '/tmp',
+      '-f',
     ];
     await runCli();
 
     const { createCommand } = require('../src/commands/create');
-    expect(createCommand).toHaveBeenCalledWith('myprofile', 'opencode', 'sk-123', '/tmp');
+    expect(createCommand).toHaveBeenCalledWith('myprofile', 'opencode', 'sk-123', '/tmp', true);
   });
 
-  it('shows error when create command missing profile', async () => {
+  it('executes create command without profile (interactive)', async () => {
     process.argv = ['node', 'cli.js', 'create'];
     await runCli();
 
-    expect(console.error).toHaveBeenCalledWith('Error: Profile name required');
-    expect(console.error).toHaveBeenCalledWith('Usage: aiswitch create <name>');
-    expect(process.exit).toHaveBeenCalledWith(1);
+    const { createCommand } = require('../src/commands/create');
+    expect(createCommand).toHaveBeenCalledWith(
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined
+    );
   });
 
   it('executes run command with profile', async () => {

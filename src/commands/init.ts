@@ -35,7 +35,7 @@ function detectProfiles(): Record<string, unknown> {
   if (ocPath) {
     profiles['opencode'] = {
       executable: 'opencode',
-      description: 'Default opencode profile',
+      description: 'opencode profile',
       env: {
         OPENCODE_CONFIG_DIR: path.join(os.homedir(), '.config', 'opencode'),
       },
@@ -46,7 +46,7 @@ function detectProfiles(): Record<string, unknown> {
   if (cxPath) {
     profiles['codex'] = {
       executable: 'codex',
-      description: 'Default codex profile',
+      description: 'codex profile',
       env: {
         CODEX_CONFIG_DIR: path.join(os.homedir(), '.codex'),
       },

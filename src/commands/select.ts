@@ -12,6 +12,8 @@ import {
   renameSession,
   deleteSession,
 } from './sessions';
+import { detectHarness, getArgsHelpMessage } from '../utils/harness';
+import { createCommandInteractive } from './create-interactive';
 
 function getLastUsedFilePath(): string {
   return process.env.AIUSE_LAST_USED || path.join(os.homedir(), '.aiswitch', 'last-used.json');
@@ -56,34 +58,72 @@ export async function selectCommand(): Promise<void> {
   const config = loadConfig();
   const profiles = Object.keys(config.profiles).sort();
 
-  if (profiles.length === 0) {
-    console.log('No profiles configured. Run `aiswitch init` to create one.');
+  const mainChoices = [
+    { name: 'Load', message: 'Load an existing profile' },
+    { name: 'Create', message: 'Create a new profile' },
+  ];
+
+  const mainPrompt = {
+    type: 'select',
+    name: 'action',
+    message: 'Select an option',
+    choices: mainChoices,
+    initial: 0,
+  };
+
+  const mainResult = (await Enquirer.prompt(mainPrompt)) as { action: string };
+  const action = mainResult.action;
+
+  if (action === 'Create') {
+    await createCommandInteractive();
     return;
   }
 
+  if (profiles.length === 0) {
+    console.log('No profiles configured.');
+    await createCommandInteractive();
+    return;
+  }
+
+  const DEFAULT_PROFILES = ['opencode', 'codex'];
+  const customProfiles = profiles.filter((p) => !DEFAULT_PROFILES.includes(p));
+  const defaultProfiles = profiles.filter((p) => DEFAULT_PROFILES.includes(p));
+  const sortedProfiles = [...customProfiles, ...defaultProfiles];
+
   const lastUsed = getLastUsedProfile();
-  const initialIndex = lastUsed && profiles.includes(lastUsed) ? profiles.indexOf(lastUsed) : 0;
+  const initialIndex =
+    lastUsed && sortedProfiles.includes(lastUsed) ? sortedProfiles.indexOf(lastUsed) : 0;
 
   const profilePrompt = {
-    type: 'select',
+    type: 'autocomplete',
     name: 'profile',
     message: 'Select a profile',
-    choices: profiles.map((name) => {
+    limit: 10,
+    initial: initialIndex,
+    choices: sortedProfiles.map((name) => {
       const profile = config.profiles[name] as Profile;
       const sessions = getSessions(name);
       const sessionsCount = sessions.length > 0 ? ` (${sessions.length} sessions)` : '';
-      const desc = profile.description ? ` - ${profile.description}` : '';
-      const marker = name === lastUsed ? ' (last used)' : '';
+      const isDefault = DEFAULT_PROFILES.includes(name);
+      const defaultMarker = isDefault ? ' (Default)' : '';
+      const lastUsedMarker = name === lastUsed ? ' (last used)' : '';
+      const desc =
+        profile.description &&
+        profile.description !== `${name} profile` &&
+        profile.description !== `${name}profile`
+          ? ` - ${profile.description}`
+          : '';
       return {
         name,
-        message: `${name}${marker}${desc}${sessionsCount}`,
+        message: `${name}${defaultMarker}${lastUsedMarker}${desc}${sessionsCount}`,
       };
     }),
-    initial: initialIndex,
   };
 
   const profileResult = (await Enquirer.prompt(profilePrompt)) as { profile: string };
   const profileName = profileResult.profile;
+  const profile = config.profiles[profileName] as Profile;
+  const harness = detectHarness(profile.executable);
 
   const sessions = getSessions(profileName);
   let selectedSessionId: string | undefined;
@@ -91,10 +131,14 @@ export async function selectCommand(): Promise<void> {
   if (sessions.length > 0) {
     const sessionChoices = [
       { name: '', message: '<skip session selection>' },
-      ...sessions.map((s) => ({
-        name: s.id,
-        message: `${getSessionDisplayName(s)} (${s.id.slice(0, 8)}...)`,
-      })),
+      ...sessions.map((s) => {
+        const cwdInfo = s.cwd ? ` ${s.cwd}` : '';
+        const nameInfo = s.name ? ` (${s.name})` : '';
+        return {
+          name: s.id,
+          message: `${s.id}${cwdInfo}${nameInfo}`,
+        };
+      }),
       { name: '__rename__', message: '[R] Rename a session' },
       { name: '__delete__', message: '[D] Delete a session' },
     ];
@@ -189,16 +233,17 @@ export async function selectCommand(): Promise<void> {
     const argsPrompt = {
       type: 'input',
       name: 'args',
-      message: 'Additional args (or press enter to use session)',
+      message: getArgsHelpMessage(harness, true),
       initial: `-s ${selectedSessionId}`,
     };
     const argsResult = (await Enquirer.prompt(argsPrompt)) as { args: string };
     extraArgs = argsResult.args.trim() ? argsResult.args.split(' ') : [];
   } else {
+    const sessionExample = getArgsHelpMessage(harness, false);
     const argsPrompt = {
       type: 'input',
       name: 'args',
-      message: 'Additional args (e.g., -s session-id)',
+      message: sessionExample,
       initial: '',
     };
     const argsResult = (await Enquirer.prompt(argsPrompt)) as { args: string };
@@ -220,9 +265,35 @@ export async function selectCommand(): Promise<void> {
   }
 
   setLastUsedProfile(profileName);
+  const currentCwd = process.cwd();
   if (selectedSessionId) {
-    addSession(profileName, selectedSessionId);
+    addSession(profileName, selectedSessionId, undefined, currentCwd);
   }
+
   const exitCode = await runCommand(profileName, extraArgs);
+
+  console.log('\n');
+  const sessionPrompt = {
+    type: 'input',
+    name: 'sessionId',
+    message: 'Session ID to save (or press enter to skip)',
+  };
+  const sessionResult = (await Enquirer.prompt(sessionPrompt)) as { sessionId: string };
+  if (sessionResult.sessionId.trim()) {
+    const namePrompt = {
+      type: 'input',
+      name: 'name',
+      message: 'Session name (optional)',
+    };
+    const nameResult = (await Enquirer.prompt(namePrompt)) as { name: string };
+    addSession(
+      profileName,
+      sessionResult.sessionId.trim(),
+      nameResult.name.trim() || undefined,
+      currentCwd
+    );
+    console.log(`Session saved: ${nameResult.name.trim() || sessionResult.sessionId.trim()}`);
+  }
+
   process.exit(exitCode);
 }
