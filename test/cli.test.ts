@@ -47,7 +47,7 @@ describe('parseArgs', () => {
     const result = parseArgs(['node', 'aiswitch', 'create', 'myprofile', '-e', 'opencode']);
     expect(result.command).toBe('create');
     expect(result.profile).toBe('myprofile');
-    expect(result.flags).toEqual({ e: 'opencode' });
+    expect(result.flags).toEqual({ e: 'opencode', executable: 'opencode' });
   });
 
   it('parses create with long flags', () => {
@@ -114,14 +114,14 @@ describe('parseArgs', () => {
 
   it('parses short flags without value', () => {
     const result = parseArgs(['node', 'aiswitch', 'init', '-f']);
-    expect(result.flags).toEqual({ f: true });
+    expect(result.flags).toEqual({ f: true, force: true });
   });
 
   it('parses mixed short and long flags', () => {
     const result = parseArgs(['node', 'aiswitch', 'create', 'test', '-e', 'opencode', '--force']);
     expect(result.command).toBe('create');
     expect(result.profile).toBe('test');
-    expect(result.flags).toEqual({ e: 'opencode', force: true });
+    expect(result.flags).toEqual({ e: 'opencode', executable: 'opencode', force: true });
   });
 
   it('treats values starting with dash as flags', () => {
