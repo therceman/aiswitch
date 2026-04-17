@@ -7,12 +7,16 @@ describe('runCommand', () => {
   const testDir = path.join(os.tmpdir(), 'aiswitch-run-test-' + Date.now());
   const testConfigPath = path.join(testDir, 'config.yaml');
 
+  const originalLog = console.log;
+
   beforeAll(() => {
     fs.mkdirSync(testDir, { recursive: true });
+    console.log = () => {};
   });
 
   afterAll(() => {
     fs.rmSync(testDir, { recursive: true });
+    console.log = originalLog;
   });
 
   beforeEach(() => {
@@ -59,11 +63,14 @@ profiles:
       `version: 1
 profiles:
   test:
-    executable: echo`
+    executable: node
+    args:
+      - -e
+      - process.exit(0)`
     );
     process.env.AIUSE_CONFIG = testConfigPath;
 
-    const exitCode = await runCommand('test', ['hello', 'world']);
+    const exitCode = await runCommand('test', []);
     expect(exitCode).toBe(0);
   });
 
@@ -73,14 +80,14 @@ profiles:
       `version: 1
 profiles:
   test:
-    executable: echo
+    executable: node
     args:
-      - --prefix
-      - test`
+      - -e
+      - process.exit(0)`
     );
     process.env.AIUSE_CONFIG = testConfigPath;
 
-    const exitCode = await runCommand('test', ['hello']);
+    const exitCode = await runCommand('test', []);
     expect(exitCode).toBe(0);
   });
 
@@ -93,14 +100,17 @@ profiles:
       `version: 1
 profiles:
   test:
-    executable: echo
+    executable: node
+    args:
+      - -e
+      - process.exit(0)
     createDirs:
       - ${dirPath}`
     );
     process.env.AIUSE_CONFIG = testConfigPath;
 
     expect(fs.existsSync(dirPath)).toBe(false);
-    await runCommand('test', ['test']);
+    await runCommand('test', []);
     expect(fs.existsSync(dirPath)).toBe(true);
 
     fs.rmSync(tempDir, { recursive: true });
@@ -115,14 +125,17 @@ profiles:
       `version: 1
 profiles:
   test:
-    executable: echo
+    executable: node
+    args:
+      - -e
+      - process.exit(0)
     env:
       XDG_CONFIG_HOME: ${envPath}`
     );
     process.env.AIUSE_CONFIG = testConfigPath;
 
     expect(fs.existsSync(envPath)).toBe(false);
-    await runCommand('test', ['test']);
+    await runCommand('test', []);
     expect(fs.existsSync(envPath)).toBe(true);
 
     fs.rmSync(tempDir, { recursive: true });

@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import crypto from 'crypto';
 import Enquirer from 'enquirer';
 import { loadConfig } from '../config/load';
 import { Profile } from '../config/schema';
@@ -12,15 +13,26 @@ import {
   renameSession,
   deleteSession,
 } from './sessions';
-import { detectHarness, getArgsHelpMessage } from '../utils/harness';
 import { createCommandInteractive } from './create-interactive';
 
+function getLastUsedDirPath(): string {
+  return process.env.AIUSE_LAST_USED || path.join(os.homedir(), '.aiswitch', 'last-used');
+}
+
+function getCwdHash(): string {
+  const cwd = process.cwd();
+  return crypto.createHash('sha256').update(cwd).digest('hex').substring(0, 16);
+}
+
 function getLastUsedFilePath(): string {
-  return process.env.AIUSE_LAST_USED || path.join(os.homedir(), '.aiswitch', 'last-used.json');
+  const lastUsedDir = getLastUsedDirPath();
+  const cwdHash = getCwdHash();
+  return path.join(lastUsedDir, `${cwdHash}.json`);
 }
 
 interface LastUsedData {
   profile: string;
+  cwd: string;
   timestamp: number;
 }
 
@@ -46,6 +58,7 @@ export function setLastUsedProfile(profileName: string): void {
     }
     const data: LastUsedData = {
       profile: profileName,
+      cwd: process.cwd(),
       timestamp: Date.now(),
     };
     fs.writeFileSync(lastUsedFile, JSON.stringify(data, null, 2), 'utf-8');
@@ -58,8 +71,17 @@ export async function selectCommand(): Promise<void> {
   const config = loadConfig();
   const profiles = Object.keys(config.profiles).sort();
 
+  const DEFAULT_PROFILES = ['opencode', 'codex'];
+  const customProfiles = profiles.filter((p) => !DEFAULT_PROFILES.includes(p));
+  const defaultProfiles = profiles.filter((p) => DEFAULT_PROFILES.includes(p));
+  const sortedProfiles = [...customProfiles, ...defaultProfiles];
+
+  // Check if any profiles have sessions
+  const hasAnySessions = sortedProfiles.some((name) => getSessions(name).length > 0);
+
   const mainChoices = [
-    { name: 'Load', message: 'Load an existing profile' },
+    ...(hasAnySessions ? [{ name: 'Resume', message: 'Resume an existing profile session' }] : []),
+    { name: 'Start', message: 'Start a new profile session' },
     { name: 'Create', message: 'Create a new profile' },
   ];
 
@@ -85,28 +107,35 @@ export async function selectCommand(): Promise<void> {
     return;
   }
 
-  const DEFAULT_PROFILES = ['opencode', 'codex'];
-  const customProfiles = profiles.filter((p) => !DEFAULT_PROFILES.includes(p));
-  const defaultProfiles = profiles.filter((p) => DEFAULT_PROFILES.includes(p));
-  const sortedProfiles = [...customProfiles, ...defaultProfiles];
+  // For Resume action, filter to only profiles with sessions
+  let profilesToSelect = sortedProfiles;
+  if (action === 'Resume') {
+    profilesToSelect = sortedProfiles.filter((name) => getSessions(name).length > 0);
+  }
 
-  const lastUsed = getLastUsedProfile();
-  const initialIndex =
-    lastUsed && sortedProfiles.includes(lastUsed) ? sortedProfiles.indexOf(lastUsed) : 0;
+  // For Start action, sort: custom profiles (newest first) then defaults
+  if (action === 'Start') {
+    const customProfiles = profilesToSelect.filter((p) => !DEFAULT_PROFILES.includes(p));
+    const defaultProfiles = profilesToSelect.filter((p) => DEFAULT_PROFILES.includes(p));
+    // Custom profiles sorted by creation order (newest first = reverse of config order)
+    profilesToSelect = [...customProfiles.reverse(), ...defaultProfiles];
+  }
+
+  // Always select first profile
+  const initialIndex = 0;
 
   const profilePrompt = {
     type: 'autocomplete',
     name: 'profile',
-    message: 'Select a profile',
+    message: action === 'Resume' ? 'Select a profile to resume' : 'Select a profile to start',
     limit: 10,
     initial: initialIndex,
-    choices: sortedProfiles.map((name) => {
+    choices: profilesToSelect.map((name) => {
       const profile = config.profiles[name] as Profile;
       const sessions = getSessions(name);
       const sessionsCount = sessions.length > 0 ? ` (${sessions.length} sessions)` : '';
       const isDefault = DEFAULT_PROFILES.includes(name);
-      const defaultMarker = isDefault ? ' (Default)' : '';
-      const lastUsedMarker = name === lastUsed ? ' (last used)' : '';
+      const defaultMarker = isDefault ? ' [default]' : '';
       const desc =
         profile.description &&
         profile.description !== `${name} profile` &&
@@ -115,145 +144,148 @@ export async function selectCommand(): Promise<void> {
           : '';
       return {
         name,
-        message: `${name}${defaultMarker}${lastUsedMarker}${desc}${sessionsCount}`,
+        message: `${name}${defaultMarker}${desc}${sessionsCount}`,
       };
     }),
   };
 
   const profileResult = (await Enquirer.prompt(profilePrompt)) as { profile: string };
   const profileName = profileResult.profile;
-  const profile = config.profiles[profileName] as Profile;
-  const harness = detectHarness(profile.executable);
 
-  const sessions = getSessions(profileName);
+  setLastUsedProfile(profileName);
+
   let selectedSessionId: string | undefined;
-
-  if (sessions.length > 0) {
-    const sessionChoices = [
-      { name: '', message: '<skip session selection>' },
-      ...sessions.map((s) => {
-        const cwdInfo = s.cwd ? ` ${s.cwd}` : '';
-        const nameInfo = s.name ? ` (${s.name})` : '';
-        return {
-          name: s.id,
-          message: `${s.id}${cwdInfo}${nameInfo}`,
-        };
-      }),
-      { name: '__rename__', message: '[R] Rename a session' },
-      { name: '__delete__', message: '[D] Delete a session' },
-    ];
-
-    const sessionPrompt = {
-      type: 'select',
-      name: 'session',
-      message: 'Select a session',
-      choices: sessionChoices,
-      initial: 0,
-    };
-
-    const enquirer = new Enquirer();
-    let sessionResult: { session: string };
-
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      sessionResult = (await enquirer.prompt(sessionPrompt)) as { session: string };
-
-      if (sessionResult.session === '') {
-        break;
-      }
-
-      if (sessionResult.session === '__rename__') {
-        const renamePrompt = {
-          type: 'select',
-          name: 'rename',
-          message: 'Select session to rename',
-          choices: sessions.map((s) => ({
+  if (action === 'Resume') {
+    const sessions = getSessions(profileName);
+    if (sessions.length > 0) {
+      const sessionChoices = [
+        ...sessions.map((s) => {
+          const cwdInfo = s.cwd ? ` ${s.cwd}` : '';
+          const nameInfo = s.name ? ` (${s.name})` : '';
+          const keyInfo = s.sessionKey ? ` [${s.sessionKey}]` : '';
+          return {
             name: s.id,
-            message: getSessionDisplayName(s),
-          })),
-        };
-        const renameResult = (await enquirer.prompt(renamePrompt)) as { rename: string };
+            message: `${s.id}${keyInfo}${cwdInfo}${nameInfo}`,
+          };
+        }),
+        { name: '__rename__', message: '[R] Rename a session' },
+        { name: '__delete__', message: '[D] Delete a session' },
+      ];
 
-        const namePrompt = {
-          type: 'input',
-          name: 'name',
-          message: 'New name for session',
-          initial: sessions.find((s) => s.id === renameResult.rename)?.name || '',
-        };
-        const nameResult = (await enquirer.prompt(namePrompt)) as { name: string };
+      const enquirer = new Enquirer();
+      let sessionResult: { session: string } | undefined;
 
-        if (nameResult.name.trim()) {
-          renameSession(profileName, renameResult.rename, nameResult.name.trim());
-          console.log(`Renamed session to: ${nameResult.name.trim()}`);
+      const sessionPrompt = {
+        type: 'select',
+        name: 'session',
+        message: 'Select a session to resume',
+        choices: sessionChoices,
+        initial: 0,
+        onRun: function (this: unknown) {
+          const selectPrompt = this as {
+            on: (event: string, handler: (ch: string, key: { name: string }) => void) => void;
+          };
+          selectPrompt.on('keypress', (ch, key) => {
+            if (key.name === 'r') {
+              (this as { cancel: () => void }).cancel();
+              sessionResult = { session: '__rename__' };
+            } else if (key.name === 'd') {
+              (this as { cancel: () => void }).cancel();
+              sessionResult = { session: '__delete__' };
+            }
+          });
+        },
+      };
+
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        try {
+          sessionResult = (await enquirer.prompt(sessionPrompt)) as { session: string };
+        } catch (e) {
+          if (
+            sessionResult &&
+            (sessionResult.session === '__rename__' || sessionResult.session === '__delete__')
+          ) {
+            // Handled by keypress
+          } else {
+            throw e;
+          }
         }
-        continue;
-      }
 
-      if (sessionResult.session === '__delete__') {
-        const deletePrompt = {
-          type: 'select',
-          name: 'delete',
-          message: 'Select session to delete',
-          choices: sessions.map((s) => ({
-            name: s.id,
-            message: getSessionDisplayName(s),
-          })),
-        };
-        const deleteResult = (await enquirer.prompt(deletePrompt)) as { delete: string };
+        if (sessionResult.session === '__rename__') {
+          const renamePrompt = {
+            type: 'select',
+            name: 'rename',
+            message: 'Select session to rename',
+            choices: sessions.map((s) => ({
+              name: s.id,
+              message: getSessionDisplayName(s),
+            })),
+          };
+          const renameResult = (await enquirer.prompt(renamePrompt)) as { rename: string };
 
-        const confirmPrompt = {
-          type: 'confirm',
-          name: 'confirm',
-          message: `Delete session "${getSessionDisplayName(sessions.find((s) => s.id === deleteResult.delete)!)}"?`,
-          initial: false,
-        };
-        const confirmResult = (await enquirer.prompt(confirmPrompt)) as { confirm: boolean };
+          const namePrompt = {
+            type: 'input',
+            name: 'name',
+            message: 'New name for session',
+            initial: sessions.find((s) => s.id === renameResult.rename)?.name || '',
+          };
+          const nameResult = (await enquirer.prompt(namePrompt)) as { name: string };
 
-        if (confirmResult.confirm) {
-          deleteSession(profileName, deleteResult.delete);
-          console.log('Session deleted');
-          sessions.splice(
-            sessions.findIndex((s) => s.id === deleteResult.delete),
-            1
-          );
+          if (nameResult.name.trim()) {
+            renameSession(profileName, renameResult.rename, nameResult.name.trim());
+            console.log(`Renamed session to: ${nameResult.name.trim()}`);
+          }
+          continue;
         }
-        continue;
-      }
 
-      const selectedSession = sessions.find((s) => s.id === sessionResult.session);
-      if (selectedSession) {
-        selectedSessionId = selectedSession.id;
-        break;
+        if (sessionResult.session === '__delete__') {
+          const deletePrompt = {
+            type: 'select',
+            name: 'delete',
+            message: 'Select session to delete',
+            choices: sessions.map((s) => ({
+              name: s.id,
+              message: getSessionDisplayName(s),
+            })),
+          };
+          const deleteResult = (await enquirer.prompt(deletePrompt)) as { delete: string };
+
+          const confirmPrompt = {
+            type: 'confirm',
+            name: 'confirm',
+            message: `Delete session "${getSessionDisplayName(sessions.find((s) => s.id === deleteResult.delete)!)}"?`,
+            initial: false,
+          };
+          const confirmResult = (await enquirer.prompt(confirmPrompt)) as { confirm: boolean };
+
+          if (confirmResult.confirm) {
+            deleteSession(profileName, deleteResult.delete);
+            console.log('Session deleted');
+            sessions.splice(
+              sessions.findIndex((s) => s.id === deleteResult.delete),
+              1
+            );
+          }
+          continue;
+        }
+
+        const sessionValue = sessionResult?.session;
+        if (sessionValue) {
+          const selectedSession = sessions.find((s) => s.id === sessionValue);
+          if (selectedSession) {
+            selectedSessionId = selectedSession.id;
+            break;
+          }
+        }
       }
     }
-  }
-
-  let extraArgs: string[] = [];
-  if (selectedSessionId) {
-    const argsPrompt = {
-      type: 'input',
-      name: 'args',
-      message: getArgsHelpMessage(harness, true),
-      initial: `-s ${selectedSessionId}`,
-    };
-    const argsResult = (await Enquirer.prompt(argsPrompt)) as { args: string };
-    extraArgs = argsResult.args.trim() ? argsResult.args.split(' ') : [];
-  } else {
-    const sessionExample = getArgsHelpMessage(harness, false);
-    const argsPrompt = {
-      type: 'input',
-      name: 'args',
-      message: sessionExample,
-      initial: '',
-    };
-    const argsResult = (await Enquirer.prompt(argsPrompt)) as { args: string };
-    extraArgs = argsResult.args.trim() ? argsResult.args.split(' ') : [];
   }
 
   const confirmPrompt = {
     type: 'confirm',
     name: 'confirm',
-    message: `Run aiswitch ${profileName}${extraArgs.length ? ' ' + extraArgs.join(' ') : ''}?`,
+    message: `${action} ${profileName}${selectedSessionId ? ` (session: ${selectedSessionId})` : ''}?`,
     initial: true,
   };
 
@@ -264,13 +296,18 @@ export async function selectCommand(): Promise<void> {
     return;
   }
 
-  setLastUsedProfile(profileName);
   const currentCwd = process.cwd();
-  if (selectedSessionId) {
-    addSession(profileName, selectedSessionId, undefined, currentCwd);
-  }
+  let exitCode: number;
 
-  const exitCode = await runCommand(profileName, extraArgs);
+  try {
+    exitCode = await runCommand(profileName, selectedSessionId ? [`-s`, selectedSessionId] : []);
+  } catch (e: unknown) {
+    console.error('\nHarness exited with error.');
+    console.error('If the terminal display is corrupted, try:');
+    console.error('  • Run `reset` command');
+    console.error('  • Restart the terminal');
+    return;
+  }
 
   console.log('\n');
   const sessionPrompt = {
@@ -280,19 +317,33 @@ export async function selectCommand(): Promise<void> {
   };
   const sessionResult = (await Enquirer.prompt(sessionPrompt)) as { sessionId: string };
   if (sessionResult.sessionId.trim()) {
-    const namePrompt = {
+    const sessionId = sessionResult.sessionId.trim();
+    const defaultKey = `${profileName}_${sessionId.slice(-4)}`;
+
+    const keyPrompt = {
       type: 'input',
-      name: 'name',
-      message: 'Session name (optional)',
+      name: 'sessionKey',
+      message: 'Session key',
+      initial: defaultKey,
     };
-    const nameResult = (await Enquirer.prompt(namePrompt)) as { name: string };
+    const keyResult = (await Enquirer.prompt(keyPrompt)) as { sessionKey: string };
+
+    const descPrompt = {
+      type: 'input',
+      name: 'description',
+      message: 'Session description (optional)',
+    };
+    const descResult = (await Enquirer.prompt(descPrompt)) as { description: string };
+
     addSession(
       profileName,
-      sessionResult.sessionId.trim(),
-      nameResult.name.trim() || undefined,
-      currentCwd
+      sessionId,
+      undefined,
+      currentCwd,
+      keyResult.sessionKey.trim(),
+      descResult.description.trim() || undefined
     );
-    console.log(`Session saved: ${nameResult.name.trim() || sessionResult.sessionId.trim()}`);
+    console.log(`Session saved: ${keyResult.sessionKey.trim()}`);
   }
 
   process.exit(exitCode);

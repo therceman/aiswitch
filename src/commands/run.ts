@@ -25,14 +25,29 @@ export async function runCommand(profileName: string, extraArgs: string[]): Prom
 
   const args = [...(profile.args || []), ...extraArgs];
 
-  const exitCode = await spawnAndWait({
-    executable: profile.executable,
-    args,
-    cwd,
-    env,
-  });
+  try {
+    const exitCode = await spawnAndWait({
+      executable: profile.executable,
+      args,
+      cwd,
+      env,
+      profile: profileName,
+      trackPID: true,
+    });
 
-  return exitCode;
+    return exitCode;
+  } catch (e: unknown) {
+    // Check if this might be a terminal state issue
+    if ((e as Error).message?.includes('Failed to spawn')) {
+      console.error('\nError: Failed to start harness.');
+      console.error('If your terminal appears corrupted or unresponsive:');
+      console.error('  1. Try resizing the terminal window');
+      console.error('  2. Run `reset` command');
+      console.error('  3. Restart the terminal');
+      console.error('\nThis can happen when TUI apps leave the terminal in an inconsistent state.');
+    }
+    throw e;
+  }
 }
 
 function ensureDirectories(profile: Profile, cwd?: string): void {

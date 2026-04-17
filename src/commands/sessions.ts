@@ -8,6 +8,8 @@ interface SessionEntry {
   profile: string;
   lastUsed: number;
   cwd?: string;
+  sessionKey?: string;
+  description?: string;
 }
 
 interface SessionsData {
@@ -44,7 +46,14 @@ function saveSessions(sessions: SessionsData): void {
   }
 }
 
-export function addSession(profile: string, sessionId: string, name?: string, cwd?: string): void {
+export function addSession(
+  profile: string,
+  sessionId: string,
+  name?: string,
+  cwd?: string,
+  sessionKey?: string,
+  description?: string
+): void {
   const sessions = loadSessions();
   if (!sessions[profile]) {
     sessions[profile] = [];
@@ -59,6 +68,12 @@ export function addSession(profile: string, sessionId: string, name?: string, cw
     if (cwd) {
       sessions[profile][existingIndex].cwd = cwd;
     }
+    if (sessionKey) {
+      sessions[profile][existingIndex].sessionKey = sessionKey;
+    }
+    if (description) {
+      sessions[profile][existingIndex].description = description;
+    }
   } else {
     sessions[profile].push({
       id: sessionId,
@@ -66,6 +81,8 @@ export function addSession(profile: string, sessionId: string, name?: string, cw
       profile,
       lastUsed: Date.now(),
       cwd,
+      sessionKey,
+      description,
     });
   }
 
@@ -117,4 +134,25 @@ export function getSessionDisplayName(session: SessionEntry): string {
   }
   const shortId = session.id.length > 8 ? session.id.slice(0, 8) + '...' : session.id;
   return shortId;
+}
+
+export function findSessionByKey(
+  keyOrId: string
+): { profile: string; session: SessionEntry } | null {
+  const sessions = loadSessions();
+
+  for (const [profile, profileSessions] of Object.entries(sessions)) {
+    for (const session of profileSessions) {
+      // Match by session key
+      if (session.sessionKey && session.sessionKey === keyOrId) {
+        return { profile, session };
+      }
+      // Match by session ID
+      if (session.id === keyOrId) {
+        return { profile, session };
+      }
+    }
+  }
+
+  return null;
 }

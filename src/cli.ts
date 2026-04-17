@@ -6,6 +6,10 @@ import { doctorCommand } from './commands/doctor';
 import { initCommand } from './commands/init';
 import { createCommand } from './commands/create';
 import { selectCommand } from './commands/select';
+import { resumeCommand } from './commands/resume';
+import { startCommand } from './commands/start';
+import { newCommand } from './commands/new';
+import { cleanupCommand, psCommand } from './commands/cleanup';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -17,8 +21,22 @@ interface ParseResult {
   extraArgs: string[];
 }
 
-const KNOWN_COMMANDS = ['init', 'create', 'list', 'which', 'doctor', 'run', 'help', 'select'];
-const PROFILE_COMMANDS = ['run', 'which', 'doctor'];
+const KNOWN_COMMANDS = [
+  'init',
+  'create',
+  'new',
+  'resume',
+  'start',
+  'list',
+  'which',
+  'doctor',
+  'run',
+  'help',
+  'select',
+  'cleanup',
+  'ps',
+];
+const PROFILE_COMMANDS = ['run', 'which', 'doctor', 'start'];
 
 function parseArgs(argv: string[]): ParseResult {
   const args = argv.slice(2);
@@ -145,19 +163,29 @@ Usage:
 Commands:
   init              Initialize config with auto-detected runtimes
   create <name>     Create a new profile
+  new               Create a new profile (interactive)
+  resume <key>      Resume a session by profile or session key
+  start <profile>   Start a new session with profile
   list              List all profiles
   which <profile>   Show resolved runtime details
   doctor [profile]  Run diagnostics
   run <profile>     Run a profile (default command)
-  select            Interactive profile selector
+  select            Interactive profile selector (TUI)
+  ps                List tracked processes
+  cleanup           Kill orphaned processes
   help              Show this help message
 
 Examples:
   aiswitch init
+  aiswitch new
+  aiswitch start opencode
+  aiswitch resume myprofile_abc123
   aiswitch create myprofile -e opencode
   aiswitch opencode --help
   aiswitch myprofile -m fast
   aiswitch run myprofile --verbose
+  aiswitch ps
+  aiswitch cleanup
 
 Create options:
   -e, --executable <name>  Executable name (opencode or codex)
@@ -186,6 +214,28 @@ async function runCli(): Promise<void> {
           flags.dir as string | undefined,
           flags.force as boolean | undefined
         );
+        break;
+
+      case 'new':
+        await newCommand();
+        break;
+
+      case 'resume':
+        if (!profile) {
+          console.error('Error: Profile or session key required');
+          console.error('Usage: aiswitch resume <profile|session-key>');
+          process.exit(1);
+        }
+        await resumeCommand(profile);
+        break;
+
+      case 'start':
+        if (!profile) {
+          console.error('Error: Profile name required');
+          console.error('Usage: aiswitch start <profile>');
+          process.exit(1);
+        }
+        await startCommand(profile, extraArgs);
         break;
 
       case 'list':
@@ -223,6 +273,14 @@ async function runCli(): Promise<void> {
 
       case 'help':
         showHelp();
+        break;
+
+      case 'cleanup':
+        cleanupCommand();
+        break;
+
+      case 'ps':
+        psCommand();
         break;
 
       case 'select':

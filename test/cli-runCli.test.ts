@@ -39,6 +39,7 @@ const originalExit = process.exit;
 beforeEach(() => {
   console.log = jest.fn();
   console.error = jest.fn();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   process.exit = jest.fn() as any;
 });
 

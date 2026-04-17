@@ -1,30 +1,11 @@
 import { initCommand } from '../src/commands/init';
 import fs from 'fs';
 import path from 'path';
-import os from 'os';
+import { useTestEnv } from './test-utils';
 
 describe('initCommand', () => {
-  const testDir = path.join(os.tmpdir(), 'aiswitch-init-test-' + Date.now());
-  const testConfigPath = path.join(testDir, 'config.yaml');
-  const originalConfig = process.env.AIUSE_CONFIG;
-
-  beforeAll(() => {
-    fs.mkdirSync(testDir, { recursive: true });
-    process.env.AIUSE_CONFIG = testConfigPath;
-  });
-
-  afterAll(() => {
-    fs.rmSync(testDir, { recursive: true });
-    if (originalConfig) {
-      process.env.AIUSE_CONFIG = originalConfig;
-    } else {
-      delete process.env.AIUSE_CONFIG;
-    }
-  });
-
-  beforeEach(() => {
-    process.env.AIUSE_CONFIG = testConfigPath;
-  });
+  const testEnv = useTestEnv();
+  const testConfigPath = testEnv.configPath;
 
   it('creates config file', () => {
     const logs: string[] = [];
@@ -77,7 +58,7 @@ describe('initCommand', () => {
   });
 
   it('creates config directory if missing', () => {
-    const newDir = path.join(testDir, 'new-config-dir-' + Date.now());
+    const newDir = path.join(testEnv.testDir, 'new-config-dir-' + Date.now());
     const newConfigPath = path.join(newDir, 'config.yaml');
     const savedConfig = process.env.AIUSE_CONFIG;
     process.env.AIUSE_CONFIG = newConfigPath;

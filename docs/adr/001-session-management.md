@@ -1,0 +1,138 @@
+# ADR 001: Session Management with Session Keys
+
+## Status
+
+Accepted
+
+## Context
+
+The aiswitch CLI tool manages profile-isolated sessions for AI coding assistants (opencode/codex). Users need to:
+
+- Resume previous sessions across different working directories
+- Reference sessions with memorable identifiers
+- Track session metadata (profile, description, working directory)
+- Maintain both short-term (last-used per directory) and long-term (session history) memory
+
+## Decision
+
+Implement a session management system with the following characteristics:
+
+### Session Data Structure
+
+Each session entry contains:
+
+- `id`: The harness-provided session ID (e.g., `ses_267f917bdffeOW2yp1TMXjhSFl`)
+- `profile`: The profile name used for this session
+- `sessionKey`: User-friendly identifier (default: `<profile>_<last-4-chars-of-id>`)
+- `description`: Optional user-provided description
+- `cwd`: Working directory where session was started
+- `lastUsed`: Timestamp for sorting/recency tracking
+
+### Session Key Format
+
+Default session key format: `<profile>_<last-4-chars-of-session-id>`
+
+Example: `opencode_XjhS`
+
+Users can customize the session key during session save.
+
+### Session Resume
+
+Sessions can be resumed by:
+
+1. Profile name (shows session list)
+2. Session key (direct resume)
+3. Session ID (direct resume)
+
+### Commands
+
+- `aiswitch` (no args) → Interactive TUI with Resume/Start/Create options
+- `aiswitch resume <profile|session-key>` → Resume existing session
+- `aiswitch start <profile> [args...]` → Start new session with optional args
+- `aiswitch new` → Create new profile (interactive)
+
+### TUI Behavior
+
+The interactive TUI:
+
+1. Does NOT prompt for extra arguments (keeps flow simple)
+2. Shows session keys in session list: `ses_... [opencode_XjhS] /path/to/cwd (Description)`
+3. After harness exits, prompts for:
+   - Session ID (from harness output)
+   - Session key (pre-filled with default)
+   - Description (optional)
+
+### Last-Used Tracking
+
+Last-used profile is tracked **per working directory**, not globally:
+
+- Storage: `~/.aiswitch/last-used/<cwd-hash>.json`
+- Allows different "last used" profiles in different project directories
+
+## Consequences
+
+### Positive
+
+- Users can quickly resume sessions with memorable keys
+- Session metadata helps identify the right session to resume
+- Per-directory last-used tracking respects project context
+- TUI flow is simplified (no argument prompts)
+- CLI remains flexible for power users (start with args)
+
+### Negative
+
+- Session keys must be unique (potential for collision if users customize)
+- Additional prompts after harness exit may feel redundant
+- Session management complexity increases
+
+### Neutral
+
+- Sessions are limited to 50 per profile (automatic cleanup)
+- Session keys are user-customizable but default to predictable format
+
+## Implementation Details
+
+### Session Storage
+
+Location: `~/.aiswitch/sessions.json`
+
+```json
+{
+  "opencode": [
+    {
+      "id": "ses_267f917bdffeOW2yp1TMXjhSFl",
+      "profile": "opencode",
+      "sessionKey": "opencode_XjhS",
+      "description": "Implement texture maker feature",
+      "cwd": "/home/user/project",
+      "lastUsed": 1776409079562
+    }
+  ]
+}
+```
+
+### Session Save Flow
+
+After harness exits (Ctrl+C):
+
+1. Prompt: "Session ID to save (or press enter to skip)"
+2. If ID provided:
+   - Prompt: "Session key" (pre-filled: `<profile>_XXXX`)
+   - Prompt: "Session description (optional)"
+   - Save to sessions.json
+
+### Resume Command Logic
+
+```typescript
+resumeCommand(profileOrSessionKey: string):
+  1. Check if profileOrSessionKey matches a profile name
+     - If yes and has sessions: show session selector
+     - If yes and no sessions: start new session
+  2. Check if profileOrSessionKey matches a session key
+     - If yes: resume that session directly
+  3. Check if profileOrSessionKey matches a session ID
+     - If yes: resume that session directly
+  4. Error: not found
+```
+
+Note: Current implementation treats the argument as a session ID for simplicity. Future enhancement can add key-based lookup.
