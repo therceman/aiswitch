@@ -10,6 +10,8 @@ import { resumeCommand } from './commands/resume';
 import { startCommand } from './commands/start';
 import { newCommand } from './commands/new';
 import { cleanupCommand, psCommand } from './commands/cleanup';
+import { isolateCommand } from './commands/isolate';
+import { removeCommand } from './commands/remove';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -35,6 +37,8 @@ const KNOWN_COMMANDS = [
   'select',
   'cleanup',
   'ps',
+  'isolate',
+  'remove',
 ];
 const PROFILE_COMMANDS = ['run', 'which', 'doctor', 'start'];
 
@@ -161,19 +165,21 @@ Usage:
   aiswitch <profile> [args...]
 
 Commands:
-  init              Initialize config with auto-detected runtimes
-  create <name>     Create a new profile
-  new               Create a new profile (interactive)
-  resume <key>      Resume a session by profile or session key
-  start <profile>   Start a new session with profile
-  list              List all profiles
-  which <profile>   Show resolved runtime details
-  doctor [profile]  Run diagnostics
-  run <profile>     Run a profile (default command)
-  select            Interactive profile selector (TUI)
-  ps                List tracked processes
-  cleanup           Kill orphaned processes
-  help              Show this help message
+  init                  Initialize config with auto-detected runtimes
+  create <name>         Create a new profile
+  new                   Create a new profile (interactive)
+  resume <key>          Resume a session by profile or session key
+  start <profile>       Start a new session with profile
+  list                  List all profiles
+  which <profile>       Show resolved runtime details
+  doctor [profile]      Run diagnostics
+  run <profile>         Run a profile (default command)
+  select                Interactive profile selector (TUI)
+  ps                    List tracked processes
+  cleanup               Kill orphaned processes
+  isolate [name]        Isolate profile auth (symlink shared data)
+  remove [name]         Remove isolated profile (safe, keeps shared data)
+  help                  Show this help message
 
 Examples:
   aiswitch init
@@ -281,6 +287,14 @@ async function runCli(): Promise<void> {
 
       case 'ps':
         psCommand();
+        break;
+
+      case 'isolate':
+        isolateCommand(profile);
+        break;
+
+      case 'remove':
+        await removeCommand(profile);
         break;
 
       case 'select':

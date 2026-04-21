@@ -173,3 +173,36 @@ export function useTestEnv(): TestEnv {
 
   return testEnv;
 }
+
+/**
+ * Creates a test harness home directory with specified files and directories.
+ * Useful for testing isolation logic.
+ *
+ * @param baseDir - Path to the base directory (e.g., ~/.codex mock)
+ * @param options - Files and directories to create
+ */
+export function createTestHarnessHome(
+  baseDir: string,
+  options: {
+    files?: string[];
+    dirs?: string[];
+    fileContents?: Record<string, string>;
+  } = {}
+): void {
+  fs.mkdirSync(baseDir, { recursive: true });
+
+  if (options.files) {
+    for (const file of options.files) {
+      const filePath = path.join(baseDir, file);
+      const content = options.fileContents?.[file] || JSON.stringify({ mock: true });
+      fs.writeFileSync(filePath, content, 'utf-8');
+    }
+  }
+
+  if (options.dirs) {
+    for (const dir of options.dirs) {
+      const dirPath = path.join(baseDir, dir);
+      fs.mkdirSync(dirPath, { recursive: true });
+    }
+  }
+}

@@ -7,6 +7,7 @@ import { Profile, ProfileSchema } from '../config/schema';
 import { profileToYaml } from '../utils/yaml';
 import { detectHarness } from '../utils/harness';
 import { detectAvailableHarnesses } from '../utils/detect-harnesses';
+import { setupIsolatedHarnessHome, getHarnessIsolationConfig } from '../utils/harness-isolate';
 
 interface CreateOptions {
   name?: string;
@@ -64,52 +65,58 @@ export async function createCommandInteractive(opts: CreateOptions = {}): Promis
 
   if (!execName) {
     const available = detectAvailableHarnesses();
-    const choices = available.map((h) => ({
-      name: h.executable,
-      message: `${h.executable} - ${h.description}${h.available ? '' : ' (not found in PATH)'}`,
-    }));
-    choices.push({ name: 'custom', message: 'custom - Specify manually' });
 
-    const execPrompt = {
-      type: 'autocomplete',
-      name: 'executable',
-      message: 'Select executable',
-      limit: 10,
-      choices,
-      initial: available.findIndex((h) => h.available) >= 0 ? 0 : choices.length - 1,
-    };
-    const execResult = (await Enquirer.prompt(execPrompt)) as { executable: string };
-    if (execResult.executable === 'custom') {
-      const customPrompt = {
-        type: 'input',
-        name: 'custom',
-        message: 'Enter executable name',
-      };
-      const customResult = (await Enquirer.prompt(customPrompt)) as { custom: string };
-      execName = customResult.custom;
+    // Auto-select harness if profile name starts with a harness executable name
+    const lowerName = name!.toLowerCase();
+    const autoMatch = available.find((h) => lowerName.startsWith(h.executable.toLowerCase()));
+
+    if (autoMatch) {
+      execName = autoMatch.executable;
+      console.log(`Auto-selected executable: ${execName}`);
     } else {
+      const choices = available.map((h) => ({
+        name: h.executable,
+        message: h.executable,
+      }));
+
+      const execPrompt = {
+        type: 'select',
+        name: 'executable',
+        message: 'Select executable',
+        choices,
+        initial: available.findIndex((h) => h.available) >= 0 ? 0 : 0,
+      };
+      const execResult = (await Enquirer.prompt(execPrompt)) as { executable: string };
       execName = execResult.executable;
     }
   }
 
   const harness = detectHarness(execName);
-  let useDefault = true;
 
-  if (harness === 'opencode') {
-    const useOrigPrompt = {
-      type: 'confirm',
-      name: 'useDefault',
-      message: 'Use default shared config (~/.config/opencode)?',
-      initial: true,
-    };
-    const useOrigResult = (await Enquirer.prompt(useOrigPrompt)) as { useDefault: boolean };
-    useDefault = useOrigResult.useDefault;
-    if (!useDefault) {
-      configDir = path.join(os.homedir(), '.aiswitch', 'profiles', name, 'config');
-    } else {
-      configDir = path.join(os.homedir(), '.config', 'opencode');
+  // Check if harness supports isolation
+  const isolationConfig = getHarnessIsolationConfig(harness);
+
+  if (
+    isolationConfig &&
+    (isolationConfig.isolatedItems.length > 0 || isolationConfig.sharedItems.length > 0)
+  ) {
+    // Set up isolated harness home with config-specific symlinks
+    configDir = setupIsolatedHarnessHome(harness, name);
+    console.log(`Created isolated ${harness} home: ${configDir}`);
+
+    if (isolationConfig.isolatedItems.length > 0) {
+      console.log(`  - Isolated: ${isolationConfig.isolatedItems.join(', ')}`);
     }
+    if (isolationConfig.sharedItems.length > 0) {
+      console.log(
+        `  - Shared (symlinked): ${isolationConfig.sharedItems.slice(0, 5).join(', ')}...`
+      );
+    }
+  } else if (harness === 'opencode') {
+    // Opencode uses shared config by default
+    configDir = path.join(os.homedir(), '.config', 'opencode');
   } else {
+    // Other harnesses get isolated config
     configDir = path.join(os.homedir(), '.aiswitch', 'profiles', name, 'config');
   }
 
@@ -129,13 +136,17 @@ export async function createCommandInteractive(opts: CreateOptions = {}): Promis
 
   const profile: Record<string, unknown> = {
     executable: execName,
-    description: `${name} profile`,
     env: {},
   };
 
-  if (!useDefault && configDir) {
-    const envKey = `${execName.toUpperCase()}_CONFIG_DIR`;
-    (profile.env as Record<string, string>)[envKey] = configDir;
+  // Set CODEX_HOME for codex (opencode uses shared, no env var needed)
+  if (harness === 'codex' && configDir) {
+    (profile.env as Record<string, string>)['CODEX_HOME'] = configDir;
+
+    // Create the isolated codex config directory
+    if (!fs.existsSync(configDir)) {
+      fs.mkdirSync(configDir, { recursive: true });
+    }
   }
 
   if (apiKeyVal && harness === 'opencode') {
@@ -144,24 +155,11 @@ export async function createCommandInteractive(opts: CreateOptions = {}): Promis
 
   configProfiles[name] = profile;
 
-  if (!useDefault && harness === 'opencode') {
-    if (!fs.existsSync(configDir)) {
-      fs.mkdirSync(configDir, { recursive: true });
-    }
-    const defaultConfig = path.join(os.homedir(), '.config', 'opencode', 'opencode.json');
-    const newConfig = path.join(configDir, 'opencode.json');
-    if (fs.existsSync(defaultConfig)) {
-      fs.copyFileSync(defaultConfig, newConfig);
-      console.log(`Copied config to profile directory`);
-    }
-  }
-
   const typedProfiles: Record<string, Profile> = {};
   for (const [n, p] of Object.entries(configProfiles)) {
     const prof = p as Record<string, unknown>;
     typedProfiles[n] = ProfileSchema.parse({
       executable: prof.executable,
-      description: prof.description,
       cwd: prof.cwd,
       env: prof.env,
       createDirs: prof.createDirs,

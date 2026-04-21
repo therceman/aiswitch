@@ -4,7 +4,6 @@ import os from 'os';
 import crypto from 'crypto';
 import Enquirer from 'enquirer';
 import { loadConfig } from '../config/load';
-import { Profile } from '../config/schema';
 import { runCommand } from './run';
 import {
   getSessions,
@@ -125,26 +124,16 @@ export async function selectCommand(): Promise<void> {
   const initialIndex = 0;
 
   const profilePrompt = {
-    type: 'autocomplete',
+    type: 'select',
     name: 'profile',
     message: action === 'Resume' ? 'Select a profile to resume' : 'Select a profile to start',
-    limit: 10,
     initial: initialIndex,
     choices: profilesToSelect.map((name) => {
-      const profile = config.profiles[name] as Profile;
       const sessions = getSessions(name);
       const sessionsCount = sessions.length > 0 ? ` (${sessions.length} sessions)` : '';
-      const isDefault = DEFAULT_PROFILES.includes(name);
-      const defaultMarker = isDefault ? ' [default]' : '';
-      const desc =
-        profile.description &&
-        profile.description !== `${name} profile` &&
-        profile.description !== `${name}profile`
-          ? ` - ${profile.description}`
-          : '';
       return {
         name,
-        message: `${name}${defaultMarker}${desc}${sessionsCount}`,
+        message: `${name}${sessionsCount}`,
       };
     }),
   };

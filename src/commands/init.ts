@@ -35,10 +35,6 @@ function detectProfiles(): Record<string, unknown> {
   if (ocPath) {
     profiles['opencode'] = {
       executable: 'opencode',
-      description: 'opencode profile',
-      env: {
-        OPENCODE_CONFIG_DIR: path.join(os.homedir(), '.config', 'opencode'),
-      },
     };
   }
 
@@ -46,9 +42,8 @@ function detectProfiles(): Record<string, unknown> {
   if (cxPath) {
     profiles['codex'] = {
       executable: 'codex',
-      description: 'codex profile',
       env: {
-        CODEX_CONFIG_DIR: path.join(os.homedir(), '.codex'),
+        CODEX_HOME: path.join(os.homedir(), '.aiswitch', 'codex'),
       },
     };
   }
@@ -79,11 +74,11 @@ export function initCommand(force: boolean = false): void {
     return [
       name,
       ProfileSchema.parse({
-        executable: c.executable as string,
-        description: c.description as string | undefined,
-        cwd: c.cwd as string | undefined,
-        env: c.env as Record<string, string> | undefined,
-        createDirs: c.createDirs as string[] | undefined,
+        executable: c.executable,
+        cwd: c.cwd,
+        env: c.env,
+        createDirs: c.createDirs,
+        args: c.args,
       }),
     ];
   });

@@ -5,7 +5,6 @@ export const ProfileSchema = z.object({
   cwd: z.string().optional(),
   args: z.array(z.string()).optional(),
   env: z.record(z.string(), z.string()).optional(),
-  description: z.string().optional(),
   createDirs: z.array(z.string()).optional(),
 });
 

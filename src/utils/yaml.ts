@@ -1,7 +1,7 @@
 import { Profile } from '../config/schema';
 
 export function profileToYaml(name: string, profile: Profile): string {
-  let yaml = `  ${name}:\n    executable: ${profile.executable}\n    description: ${profile.description || ''}`;
+  let yaml = `  ${name}:\n    executable: ${profile.executable}`;
 
   if (profile.cwd) {
     yaml += `\n    cwd: ${profile.cwd}`;

@@ -5,19 +5,16 @@ describe('profileToYaml', () => {
   it('converts minimal profile to YAML', () => {
     const profile = ProfileSchema.parse({
       executable: 'opencode',
-      description: 'Test profile',
     });
 
     const yaml = profileToYaml('test', profile);
     expect(yaml).toContain('  test:');
     expect(yaml).toContain('executable: opencode');
-    expect(yaml).toContain('description: Test profile');
   });
 
   it('includes cwd when present', () => {
     const profile = ProfileSchema.parse({
       executable: 'opencode',
-      description: 'Test',
       cwd: '~/test',
     });
 
@@ -28,7 +25,6 @@ describe('profileToYaml', () => {
   it('includes args when present', () => {
     const profile = ProfileSchema.parse({
       executable: 'opencode',
-      description: 'Test',
       args: ['--verbose', '--sandbox'],
     });
 
@@ -41,7 +37,6 @@ describe('profileToYaml', () => {
   it('includes env when present', () => {
     const profile = ProfileSchema.parse({
       executable: 'opencode',
-      description: 'Test',
       env: {
         TEST_VAR: 'value1',
         ANOTHER_VAR: 'value2',
@@ -57,7 +52,6 @@ describe('profileToYaml', () => {
   it('includes createDirs when present', () => {
     const profile = ProfileSchema.parse({
       executable: 'opencode',
-      description: 'Test',
       createDirs: ['/tmp/dir1', '/tmp/dir2'],
     });
 
@@ -73,11 +67,9 @@ describe('profilesToYaml', () => {
     const profiles: Record<string, ReturnType<typeof ProfileSchema.parse>> = {
       alpha: ProfileSchema.parse({
         executable: 'opencode',
-        description: 'First',
       }),
       zebra: ProfileSchema.parse({
         executable: 'codex',
-        description: 'Second',
       }),
     };
 

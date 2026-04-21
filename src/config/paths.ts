@@ -7,7 +7,6 @@ const PATH_LIKE_KEYS = new Set([
   'XDG_DATA_HOME',
   'CODEX_HOME',
   'HOME',
-  'CODEX_CONFIG_DIR',
 ]);
 
 export function isPathLike(key: string): boolean {

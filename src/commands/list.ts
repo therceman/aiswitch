@@ -12,9 +12,6 @@ export function listCommand(): void {
     if (profile.cwd) {
       console.log(`  cwd: ${profile.cwd}`);
     }
-    if (profile.description) {
-      console.log(`  description: ${profile.description}`);
-    }
     if (profile.args?.length) {
       console.log(`  args: ${profile.args.join(' ')}`);
     }

@@ -79,7 +79,6 @@ profiles:
     expect(logs).toContain('test');
     expect(logs).toContain('  executable: opencode');
     expect(logs).toContain('  cwd: ~/test');
-    expect(logs).toContain('  description: Test profile');
     expect(logs).toContain('  args: --verbose');
   });
 
@@ -89,14 +88,12 @@ profiles:
       `version: 1
 profiles:
   test:
-    executable: opencode
-    description: Test`
+    executable: opencode`
     );
     process.env.AIUSE_CONFIG = testConfigPath;
 
     const profiles = listCommandJson();
     expect(profiles.test).toBeDefined();
     expect(profiles.test.executable).toBe('opencode');
-    expect(profiles.test.description).toBe('Test');
   });
 });
