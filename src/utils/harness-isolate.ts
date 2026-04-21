@@ -96,8 +96,9 @@ export function setupIsolatedHarnessHome(
           try {
             const isDir = fs.statSync(entryBase).isDirectory();
             fs.symlinkSync(entryBase, entryProfile, isDir ? 'dir' : 'file');
-          } catch (e: any) {
-            console.warn(`Warning: Could not create symlink for ${entry}: ${e.message}`);
+          } catch (e) {
+            const message = e instanceof Error ? e.message : 'Unknown error';
+            console.warn(`Warning: Could not create symlink for ${entry}: ${message}`);
           }
         }
       }
@@ -124,9 +125,10 @@ export function setupIsolatedHarnessHome(
     try {
       const isDir = fs.statSync(baseItem).isDirectory();
       fs.symlinkSync(baseItem, profileItem, isDir ? 'dir' : 'file');
-    } catch (e: any) {
+    } catch (e) {
       // If symlink fails, skip silently
-      console.warn(`Warning: Could not create symlink for ${item}: ${e.message}`);
+      const message = e instanceof Error ? e.message : 'Unknown error';
+      console.warn(`Warning: Could not create symlink for ${item}: ${message}`);
     }
   }
 
@@ -171,8 +173,9 @@ export function removeIsolatedHarnessHome(harnessName: string, profileDir: strin
   try {
     fs.rmSync(profileDir, { recursive: true, force: true });
     return true;
-  } catch (e: any) {
-    console.error(`Failed to remove profile directory: ${e.message}`);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Unknown error';
+    console.error(`Failed to remove profile directory: ${message}`);
     return false;
   }
 }
