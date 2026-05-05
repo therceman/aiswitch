@@ -1,6 +1,7 @@
 import spawn from 'cross-spawn';
 import { findExecutablePath } from './resolveExecutable';
 import { registerPID, unregisterPID } from '../utils/pid';
+import { createPty } from './pty';
 
 export interface SpawnOptions {
   executable: string;
@@ -9,6 +10,8 @@ export interface SpawnOptions {
   env?: Record<string, string>;
   profile?: string;
   trackPID?: boolean;
+  usePty?: boolean;
+  onPtyReady?: (pty: { pid: number; write: (data: string) => void }) => void;
 }
 
 export interface SpawnResult {
@@ -16,7 +19,7 @@ export interface SpawnResult {
   output: string;
 }
 
-export function spawnProcess(options: SpawnOptions): number {
+function spawnChild(options: SpawnOptions) {
   const execPath = findExecutablePath(options.executable);
 
   const child = spawn(execPath, options.args || [], {
@@ -28,10 +31,15 @@ export function spawnProcess(options: SpawnOptions): number {
     detached: false,
   });
 
-  // Track PID if requested
   if (options.trackPID && child.pid) {
     registerPID(child.pid, options.executable, options.args || [], options.profile);
   }
+
+  return child;
+}
+
+export function spawnProcess(options: SpawnOptions): number {
+  const child = spawnChild(options);
 
   return new Promise<number>((resolve) => {
     child.on('close', (code) => {
@@ -51,31 +59,18 @@ export function spawnProcess(options: SpawnOptions): number {
 }
 
 export function spawnAndWait(options: SpawnOptions): Promise<number> {
-  const execPath = findExecutablePath(options.executable);
+  if (options.usePty) {
+    return spawnAndWaitPty(options);
+  }
+
+  const child = spawnChild(options);
 
   return new Promise<number>((resolve, reject) => {
-    const child = spawn(execPath, options.args || [], {
-      cwd: options.cwd,
-      env: options.env as Record<string, string> & NodeJS.ProcessEnv,
-      stdio: 'inherit',
-      shell: false,
-      windowsHide: true,
-      detached: false,
-    });
-
-    // Track PID if requested
-    if (options.trackPID && child.pid) {
-      registerPID(child.pid, options.executable, options.args || [], options.profile);
-    }
-
-    let exitCode = 0;
-
     child.on('close', (code) => {
-      exitCode = code ?? 0;
       if (options.trackPID && child.pid) {
         unregisterPID(child.pid);
       }
-      resolve(exitCode);
+      resolve(code ?? 0);
     });
 
     child.on('error', (err) => {
@@ -85,23 +80,80 @@ export function spawnAndWait(options: SpawnOptions): Promise<number> {
       reject(new Error(`Failed to spawn ${options.executable}: ${err.message}`));
     });
 
+    const onSigint = (): void => {
+      child.kill('SIGINT');
+    };
+    const onSigterm = (): void => {
+      child.kill('SIGTERM');
+    };
+
+    process.on('SIGINT', onSigint);
+    process.on('SIGTERM', onSigterm);
+
+    const cleanup = (): void => {
+      process.removeListener('SIGINT', onSigint);
+      process.removeListener('SIGTERM', onSigterm);
+    };
+
     child.on('exit', (code, signal) => {
       if (signal === 'SIGTERM' || signal === 'SIGINT') {
-        // Normal termination from user interrupt
         return;
       }
       if (code !== 0 && code !== null) {
-        // Non-zero exit - might be terminal issue
         console.log('\n');
       }
     });
 
-    process.on('SIGINT', () => {
-      child.kill('SIGINT');
-    });
-
-    process.on('SIGTERM', () => {
-      child.kill('SIGTERM');
-    });
+    child.on('close', cleanup);
+    child.on('error', cleanup);
   });
+}
+
+async function spawnAndWaitPty(options: SpawnOptions): Promise<number> {
+  const execPath = findExecutablePath(options.executable);
+
+  const pty = createPty({
+    file: execPath,
+    args: options.args || [],
+    cwd: options.cwd,
+    env: options.env,
+  });
+
+  if (options.trackPID) {
+    registerPID(pty.pid, options.executable, options.args || [], options.profile);
+  }
+
+  if (options.onPtyReady) {
+    options.onPtyReady({ pid: pty.pid, write: (data: string) => pty.write(data) });
+  }
+
+  const onSigint = (): void => {
+    if (process.platform === 'win32') {
+      pty.kill();
+    } else {
+      pty.kill('SIGINT');
+    }
+  };
+  const onSigterm = (): void => {
+    if (process.platform === 'win32') {
+      pty.kill();
+    } else {
+      pty.kill('SIGTERM');
+    }
+  };
+
+  process.on('SIGINT', onSigint);
+  process.on('SIGTERM', onSigterm);
+
+  try {
+    const exitCode = await pty.exitCode;
+    return exitCode;
+  } finally {
+    process.removeListener('SIGINT', onSigint);
+    process.removeListener('SIGTERM', onSigterm);
+
+    if (options.trackPID) {
+      unregisterPID(pty.pid);
+    }
+  }
 }

@@ -4,6 +4,7 @@ import {
   renameSession,
   deleteSession,
   getSessionDisplayName,
+  removeSessionByKey,
 } from '../src/commands/sessions';
 import fs from 'fs';
 import path from 'path';
@@ -111,5 +112,54 @@ describe('sessions', () => {
     }
     const sessions = getSessions('test-profile');
     expect(sessions.length).toBe(50);
+  });
+
+  it('persists controllerEndpoint when provided', () => {
+    addSession(
+      'test-profile',
+      'ses_ctrl_1',
+      undefined,
+      undefined,
+      'ctrl_key',
+      '/tmp/sockets/ctrl_key.sock'
+    );
+    const sessions = getSessions('test-profile');
+    const entry = sessions.find((s) => s.id === 'ses_ctrl_1');
+    expect(entry).toBeDefined();
+    expect(entry!.controllerEndpoint).toBe('/tmp/sockets/ctrl_key.sock');
+  });
+
+  it('removeSessionByKey removes session by key', () => {
+    addSession('test-profile', 'ses_key_1', undefined, undefined, 'mykey');
+
+    const removed = removeSessionByKey('mykey');
+    expect(removed).toBe(true);
+
+    const sessions = getSessions('test-profile');
+    expect(sessions.length).toBe(0);
+  });
+
+  it('removeSessionByKey returns false for unknown key', () => {
+    const removed = removeSessionByKey('nonexistent_key');
+    expect(removed).toBe(false);
+  });
+
+  it('updates controllerEndpoint on existing session', () => {
+    addSession('test-profile', 'ses_ctrl_2', undefined, undefined, 'ctrl_key2');
+    let sessions = getSessions('test-profile');
+    expect(sessions.find((s) => s.id === 'ses_ctrl_2')!.controllerEndpoint).toBeUndefined();
+
+    addSession(
+      'test-profile',
+      'ses_ctrl_2',
+      undefined,
+      undefined,
+      'ctrl_key2',
+      '/new/endpoint.sock'
+    );
+    sessions = getSessions('test-profile');
+    expect(sessions.find((s) => s.id === 'ses_ctrl_2')!.controllerEndpoint).toBe(
+      '/new/endpoint.sock'
+    );
   });
 });

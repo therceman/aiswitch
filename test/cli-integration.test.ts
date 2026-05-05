@@ -187,12 +187,13 @@ describe('CLI Integration', () => {
   });
 
   describe('unknown command', () => {
-    it('treats unknown command as profile run', () => {
+    it('shows migration error for unknown command', () => {
       try {
         execSync(`node ${CLI_PATH} unknownprofile`, { encoding: 'utf8', stdio: 'pipe' });
         fail('Should have thrown');
       } catch (e: any) {
-        expect(e.stderr).toContain('Profile not found');
+        expect(e.stderr).toContain('Unknown command or profile');
+        expect(e.stderr).toContain('airelay start');
       }
     });
   });
@@ -215,12 +216,13 @@ describe('CLI Integration', () => {
   });
 
   describe('--help flag on commands', () => {
-    it('passes --help to profile as extra arg', () => {
+    it('shows migration error for profile with --help', () => {
       try {
         execSync(`node ${CLI_PATH} myprofile --help`, { encoding: 'utf8', stdio: 'pipe' });
         fail('Should have thrown');
       } catch (e: any) {
-        expect(e.stderr).toContain('Profile not found');
+        expect(e.stderr).toContain('Unknown command or profile');
+        expect(e.stderr).toContain('airelay start');
       }
     });
   });

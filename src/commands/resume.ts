@@ -8,9 +8,11 @@ export async function resumeCommand(profileOrSessionKey: string): Promise<void> 
   const found = findSessionByKey(profileOrSessionKey);
 
   if (found) {
-    // Resume the found session directly
+    // Resume the found session directly; reuse its sessionKey for stable controller binding
     const args = [`-s`, found.session.id];
-    const exitCode = await runCommand(found.profile, args);
+    const exitCode = await runCommand(found.profile, args, {
+      sessionKey: found.session.sessionKey,
+    });
     process.exit(exitCode);
     return;
   }
@@ -50,6 +52,9 @@ export async function resumeCommand(profileOrSessionKey: string): Promise<void> 
 
   const sessionResult = (await Enquirer.prompt(sessionPrompt)) as { session: string };
   const args = [`-s`, sessionResult.session];
-  const exitCode = await runCommand(profileOrSessionKey, args);
+  const selectedSession = sessions.find((s) => s.id === sessionResult.session);
+  const exitCode = await runCommand(profileOrSessionKey, args, {
+    sessionKey: selectedSession?.sessionKey,
+  });
   process.exit(exitCode);
 }

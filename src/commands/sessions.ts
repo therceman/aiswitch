@@ -3,17 +3,17 @@ import path from 'path';
 import os from 'os';
 import { migrateLegacyHomeDirIfNeeded } from '../config/migrate';
 
-interface SessionEntry {
+export interface SessionEntry {
   id: string;
   name?: string;
   profile: string;
   lastUsed: number;
   cwd?: string;
   sessionKey?: string;
-  description?: string;
+  controllerEndpoint?: string;
 }
 
-interface SessionsData {
+export interface SessionsData {
   [profile: string]: SessionEntry[];
 }
 
@@ -24,7 +24,7 @@ function getSessionsPath(): string {
   return process.env.AIRELAY_SESSIONS || path.join(os.homedir(), '.airelay', 'sessions.json');
 }
 
-function loadSessions(): SessionsData {
+export function loadSessions(): SessionsData {
   try {
     const sessionsPath = getSessionsPath();
     if (!fs.existsSync(sessionsPath)) {
@@ -56,7 +56,7 @@ export function addSession(
   name?: string,
   cwd?: string,
   sessionKey?: string,
-  description?: string
+  controllerEndpoint?: string
 ): void {
   const sessions = loadSessions();
   if (!sessions[profile]) {
@@ -75,8 +75,8 @@ export function addSession(
     if (sessionKey) {
       sessions[profile][existingIndex].sessionKey = sessionKey;
     }
-    if (description) {
-      sessions[profile][existingIndex].description = description;
+    if (controllerEndpoint) {
+      sessions[profile][existingIndex].controllerEndpoint = controllerEndpoint;
     }
   } else {
     sessions[profile].push({
@@ -86,7 +86,7 @@ export function addSession(
       lastUsed: Date.now(),
       cwd,
       sessionKey,
-      description,
+      controllerEndpoint,
     });
   }
 
@@ -159,4 +159,36 @@ export function findSessionByKey(
   }
 
   return null;
+}
+
+export function updateSessionControllerEndpoint(keyOrId: string, endpoint: string): boolean {
+  const sessions = loadSessions();
+
+  for (const [, profileSessions] of Object.entries(sessions)) {
+    const entry = profileSessions.find((s) => s.sessionKey === keyOrId || s.id === keyOrId);
+    if (entry) {
+      entry.controllerEndpoint = endpoint;
+      entry.lastUsed = Date.now();
+      saveSessions(sessions);
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export function removeSessionByKey(key: string): boolean {
+  const sessions = loadSessions();
+
+  for (const [profile, profileSessions] of Object.entries(sessions)) {
+    const idx = profileSessions.findIndex((s) => s.sessionKey === key);
+    if (idx !== -1) {
+      profileSessions.splice(idx, 1);
+      sessions[profile] = profileSessions;
+      saveSessions(sessions);
+      return true;
+    }
+  }
+
+  return false;
 }

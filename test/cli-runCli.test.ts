@@ -223,12 +223,14 @@ describe('runCli', () => {
     expect(selectCommand).toHaveBeenCalled();
   });
 
-  it('executes select command for unknown command', async () => {
+  it('shows error for unknown command', async () => {
     process.argv = ['node', 'cli.js', 'unknown'];
     await runCli();
 
-    const { runCommand } = require('../src/commands/run');
-    expect(runCommand).toHaveBeenCalled();
+    expect(console.error).toHaveBeenCalledWith(
+      expect.stringContaining('Unknown command or profile')
+    );
+    expect(process.exit).toHaveBeenCalledWith(1);
   });
 
   it('catches and logs errors', async () => {
@@ -258,9 +260,9 @@ describe('parseArgs', () => {
     expect(result.profile).toBe('extra');
   });
 
-  it('handles unknown command as profile run', () => {
+  it('handles unknown command as error', () => {
     const result = parseArgs(['node', 'airelay', 'unknown']);
-    expect(result.command).toBe('run');
+    expect(result.command).toBe('error');
     expect(result.profile).toBe('unknown');
   });
 
@@ -270,10 +272,33 @@ describe('parseArgs', () => {
   });
 
   it('parses all known commands', () => {
-    const commands = ['init', 'create', 'list', 'which', 'doctor', 'run', 'help', 'select'];
+    const commands = [
+      'init',
+      'create',
+      'list',
+      'which',
+      'doctor',
+      'run',
+      'help',
+      'select',
+      'prompt',
+      'sessions',
+    ];
     commands.forEach((cmd) => {
       const result = parseArgs(['node', 'airelay', cmd]);
       expect(result.command).toBe(cmd);
     });
   });
+});
+
+it('help text includes prompt command', async () => {
+  process.argv = ['node', 'cli.js', 'help'];
+  await runCli();
+
+  expect(console.log).toHaveBeenCalled();
+  const output = (console.log as jest.Mock).mock.calls[0][0];
+  expect(output).toContain('prompt');
+  expect(output).toContain('Send input to an active session');
+  expect(output).toContain('sessions');
+  expect(output).toContain('List saved sessions');
 });

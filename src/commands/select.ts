@@ -291,9 +291,20 @@ export async function selectCommand(): Promise<void> {
 
   const currentCwd = process.cwd();
   let exitCode: number;
+  const sessionStartInfo: { sessionKey: string; controllerEndpoint: string } = {
+    sessionKey: '',
+    controllerEndpoint: '',
+  };
 
   try {
-    exitCode = await runCommand(profileName, selectedSessionId ? [`-s`, selectedSessionId] : []);
+    exitCode = await runCommand(profileName, selectedSessionId ? [`-s`, selectedSessionId] : [], {
+      onSessionStart: (info) => {
+        sessionStartInfo.sessionKey = info.sessionKey;
+        sessionStartInfo.controllerEndpoint = info.controllerEndpoint;
+        console.log(`\n✨ Session active — key: ${info.sessionKey}`);
+        console.log(`   Use: airelay prompt ${info.sessionKey} "your message"\n`);
+      },
+    });
   } catch (e: unknown) {
     console.error('\nHarness exited with error.');
     console.error('If the terminal display is corrupted, try:');
@@ -321,20 +332,13 @@ export async function selectCommand(): Promise<void> {
     };
     const keyResult = (await Enquirer.prompt(keyPrompt)) as { sessionKey: string };
 
-    const descPrompt = {
-      type: 'input',
-      name: 'description',
-      message: 'Session description (optional)',
-    };
-    const descResult = (await Enquirer.prompt(descPrompt)) as { description: string };
-
     addSession(
       profileName,
       sessionId,
       undefined,
       currentCwd,
       keyResult.sessionKey.trim(),
-      descResult.description.trim() || undefined
+      sessionStartInfo.controllerEndpoint || undefined
     );
     console.log(`Session saved: ${keyResult.sessionKey.trim()}`);
   }

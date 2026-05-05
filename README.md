@@ -12,6 +12,7 @@ Runtime dependencies:
 | zod         | 4.3.6   | Runtime schema validation       |
 | yaml        | 2.8.3   | YAML parsing for config files   |
 | cross-spawn | 7.0.6   | Cross-platform process spawning |
+| node-pty    | 1.0.0   | Pseudo-terminal for promptable sessions |
 
 Dev dependencies:
 
@@ -79,36 +80,43 @@ profiles:
 ## Commands
 
 ```bash
-airelay <profile>              # Run profile (alias of run)
-airelay run <profile> [-- ...args]
-airelay list                   # List all profiles
-airelay which <profile>        # Show resolved runtime details
-airelay doctor [profile]       # Run diagnostics
-airelay init                  # Create starter config
+airelay start <profile> [args...]  # Launch profile (PTY-backed, always promptable)
+airelay run <profile> [-- ...args] # Run profile with inherited terminal
+airelay list                       # List all profiles
+airelay which <profile>            # Show resolved runtime details
+airelay doctor [profile]           # Run diagnostics
+airelay init                       # Create starter config
+airelay resume <key>               # Resume a saved session
+airelay sessions [--json] [--active]  # List saved sessions
+airelay prompt <session> <text>    # Send input to an active session
+airelay help                       # Show this help message
 ```
 
 ## Examples
 
 ```bash
-airelay opencode-work
-airelay opencode-work --help
-airelay opencode-work -m fast
-airelay opencode-work -s ses_273323d6cffeRj1UNM002zx3wJ  # Resume opencode session
-airelay codex-personal --sandbox workspace-write
-airelay codex-work resume 029d71b4-5ef8-73b1-af8a-93c2e6812630  # Resume codex session
+airelay init
+airelay start opencode-work
+airelay start opencode-work -- resume ses_abc123  # Resume with harness-native args
+airelay start codex-personal --sandbox workspace-write
+airelay prompt myprofile_abcd "write a unit test"
+airelay sessions --active
 airelay which opencode-work
 airelay doctor
 ```
 
-Note: Arguments after the profile name are passed directly to the child process. No need for `--` separator unless you want to be explicit.
+> **Note**: `airelay start` launches with a pseudo-terminal (PTY), making sessions both terminal-compatible and promptable.
+> Use `airelay run` for simple inherited-terminal execution (non-promptable).
+> Direct profile launch (`airelay <profile>`) is no longer supported — use `airelay start <profile>`.
 
 ## How It Works
 
 1. Load config from `~/.airelay/config.yaml`
 2. Resolve paths (expand `~` to home directory)
 3. Merge profile env with parent environment
-4. Spawn executable with inherited stdio
-5. Pass through exit code
+4. Spawn executable (PTY for `start`, inherited stdio for `run`)
+5. Controller socket enables `airelay prompt` for active sessions
+6. Pass through exit code
 
 ## Platform Support
 
@@ -116,7 +124,7 @@ Note: Arguments after the profile name are passed directly to the child process.
 - macOS
 - Linux
 
-Uses `cross-spawn` for cross-platform executable resolution.
+Uses `node-pty` for PTY-backed sessions (cross-platform) and `cross-spawn` for inherited-terminal execution.
 
 ## Development
 

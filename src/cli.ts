@@ -12,6 +12,8 @@ import { newCommand } from './commands/new';
 import { cleanupCommand, psCommand } from './commands/cleanup';
 import { isolateCommand } from './commands/isolate';
 import { removeCommand } from './commands/remove';
+import { promptCommand } from './commands/prompt';
+import { sessionsListCommand } from './commands/sessions-list';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -39,6 +41,8 @@ const KNOWN_COMMANDS = [
   'ps',
   'isolate',
   'remove',
+  'prompt',
+  'sessions',
 ];
 const PROFILE_COMMANDS = ['run', 'which', 'doctor', 'start'];
 
@@ -75,19 +79,12 @@ function parseArgs(argv: string[]): ParseResult {
       process.exit(0);
     }
 
-    const dashIndex = args.indexOf('--');
-    if (dashIndex !== -1) {
-      extraArgs = args.slice(dashIndex + 1);
-    } else {
-      extraArgs = args.slice(1);
-    }
-
     return {
-      command: 'run',
-      args: extraArgs,
+      command: 'error',
+      args: [],
       flags: {},
       profile: command,
-      extraArgs,
+      extraArgs: [],
     };
   }
 
@@ -162,7 +159,6 @@ airelay - Cross-platform CLI for profile-isolated opencode/codex
 
 Usage:
   airelay <command> [options]
-  airelay <profile> [args...]
 
 Commands:
   init                  Initialize config with auto-detected runtimes
@@ -173,25 +169,33 @@ Commands:
   list                  List all profiles
   which <profile>       Show resolved runtime details
   doctor [profile]      Run diagnostics
-  run <profile>         Run a profile (default command)
+  run <profile>         Run a profile with inherited terminal
   select                Interactive profile selector (TUI)
   ps                    List tracked processes
   cleanup               Kill orphaned processes
   isolate [name]        Isolate profile auth (symlink shared data)
   remove [name]         Remove isolated profile (safe, keeps shared data)
+  prompt <session>      Send input to an active session
+  sessions              List saved sessions
   help                  Show this help message
 
 Examples:
   airelay init
   airelay new
   airelay start opencode
+  airelay start opencode resume ses_abc123
+  airelay start opencode -s ses_abc123
   airelay resume myprofile_abc123
   airelay create myprofile -e opencode
-  airelay opencode --help
-  airelay myprofile -m fast
+  airelay start myprofile -m fast
   airelay run myprofile --verbose
   airelay ps
   airelay cleanup
+  airelay prompt mysession "write a test"
+  airelay prompt mysession --text "continue" --no-enter
+  airelay sessions
+  airelay sessions --json
+  airelay sessions --active
 
 Create options:
   -e, --executable <name>  Executable name (opencode or codex)
@@ -200,11 +204,19 @@ Create options:
 
 Init options:
   -f, --force              Overwrite existing config
+
+Prompt options:
+  --text <text>            Text to send to the session
+  --no-enter               Do not append newline after text (default: enter)
+
+Session options:
+  --json                   Output in JSON format
+  --active                 Show only currently active sessions
 `);
 }
 
 async function runCli(): Promise<void> {
-  const { command, flags, profile, extraArgs } = parseArgs(process.argv);
+  const { command, flags, profile, extraArgs, args } = parseArgs(process.argv);
 
   try {
     switch (command) {
@@ -281,6 +293,12 @@ async function runCli(): Promise<void> {
         showHelp();
         break;
 
+      case 'error':
+        console.error(`Error: Unknown command or profile: "${profile}".`);
+        console.error(`Use "airelay start ${profile}" to launch this profile.`);
+        console.error('Run "airelay help" for available commands.');
+        process.exit(1);
+
       case 'cleanup':
         cleanupCommand();
         break;
@@ -297,13 +315,29 @@ async function runCli(): Promise<void> {
         await removeCommand(profile);
         break;
 
+      case 'prompt':
+        if (!profile) {
+          console.error('Error: Session key or ID required');
+          console.error('Usage: airelay prompt <session> [text]');
+          process.exit(1);
+        }
+        {
+          const text = args[0] || (flags.text as string | undefined);
+          const noEnter = flags['no-enter'] === true;
+          const exitCode = await promptCommand(profile, text, { enter: !noEnter });
+          process.exit(exitCode);
+        }
+
+      case 'sessions':
+        await sessionsListCommand({
+          json: flags.json === true,
+          active: flags.active === true,
+        });
+        break;
+
       case 'select':
       default:
-        if (!command || command === 'select') {
-          await selectCommand();
-        } else {
-          showHelp();
-        }
+        await selectCommand();
         break;
     }
   } catch (e) {

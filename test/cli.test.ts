@@ -8,25 +8,22 @@ describe('parseArgs', () => {
     expect(result.extraArgs).toEqual([]);
   });
 
-  it('parses profile run with no args', () => {
+  it('parses profile run with no args as error', () => {
     const result = parseArgs(['node', 'airelay', 'myprofile']);
-    expect(result.command).toBe('run');
+    expect(result.command).toBe('error');
     expect(result.profile).toBe('myprofile');
-    expect(result.extraArgs).toEqual([]);
   });
 
-  it('parses profile with flags', () => {
+  it('parses profile with flags as error', () => {
     const result = parseArgs(['node', 'airelay', 'myprofile', '--help']);
-    expect(result.command).toBe('run');
+    expect(result.command).toBe('error');
     expect(result.profile).toBe('myprofile');
-    expect(result.extraArgs).toEqual(['--help']);
   });
 
-  it('parses profile with multiple flags', () => {
+  it('parses profile with multiple flags as error', () => {
     const result = parseArgs(['node', 'airelay', 'myprofile', '-m', 'fast', '--verbose']);
-    expect(result.command).toBe('run');
+    expect(result.command).toBe('error');
     expect(result.profile).toBe('myprofile');
-    expect(result.extraArgs).toEqual(['-m', 'fast', '--verbose']);
   });
 
   it('parses run command with profile', () => {
@@ -98,11 +95,10 @@ describe('parseArgs', () => {
     expect(result.command).toBe('select');
   });
 
-  it('handles -- separator', () => {
+  it('handles -- separator as error', () => {
     const result = parseArgs(['node', 'airelay', 'myprofile', '--', '--help', '--verbose']);
-    expect(result.command).toBe('run');
+    expect(result.command).toBe('error');
     expect(result.profile).toBe('myprofile');
-    expect(result.extraArgs).toEqual(['--help', '--verbose']);
   });
 
   it('handles -- separator with run command', () => {
@@ -124,8 +120,53 @@ describe('parseArgs', () => {
     expect(result.flags).toEqual({ e: 'opencode', executable: 'opencode', force: true });
   });
 
-  it('treats values starting with dash as flags', () => {
+  it('treats values starting with dash as error', () => {
     const result = parseArgs(['node', 'airelay', 'myprofile', '--help']);
-    expect(result.extraArgs).toEqual(['--help']);
+    expect(result.command).toBe('error');
+  });
+
+  it('parses prompt command with session and text', () => {
+    const result = parseArgs(['node', 'airelay', 'prompt', 'mysession', 'write a test']);
+    expect(result.command).toBe('prompt');
+    expect(result.profile).toBe('mysession');
+    expect(result.args).toEqual(['write a test']);
+  });
+
+  it('parses prompt command with --text flag', () => {
+    const result = parseArgs(['node', 'airelay', 'prompt', 'mysession', '--text', 'hello']);
+    expect(result.command).toBe('prompt');
+    expect(result.profile).toBe('mysession');
+    expect(result.flags).toHaveProperty('text', 'hello');
+  });
+
+  it('parses prompt command with --no-enter flag', () => {
+    const result = parseArgs(['node', 'airelay', 'prompt', 'mysession', 'hello', '--no-enter']);
+    expect(result.command).toBe('prompt');
+    expect(result.profile).toBe('mysession');
+    expect(result.flags).toHaveProperty('no-enter', true);
+  });
+
+  it('prompt command shows error when missing session', () => {
+    const result = parseArgs(['node', 'airelay', 'prompt']);
+    expect(result.command).toBe('prompt');
+    expect(result.profile).toBeUndefined();
+  });
+
+  it('parses sessions command', () => {
+    const result = parseArgs(['node', 'airelay', 'sessions']);
+    expect(result.command).toBe('sessions');
+    expect(result.profile).toBeUndefined();
+  });
+
+  it('parses sessions command with --json flag', () => {
+    const result = parseArgs(['node', 'airelay', 'sessions', '--json']);
+    expect(result.command).toBe('sessions');
+    expect(result.flags).toHaveProperty('json', true);
+  });
+
+  it('parses sessions command with --active flag', () => {
+    const result = parseArgs(['node', 'airelay', 'sessions', '--active']);
+    expect(result.command).toBe('sessions');
+    expect(result.flags).toHaveProperty('active', true);
   });
 });
