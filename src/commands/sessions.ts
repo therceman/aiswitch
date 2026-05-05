@@ -1,7 +1,6 @@
-import fs from 'fs';
-import path from 'path';
 import os from 'os';
-import { migrateLegacyHomeDirIfNeeded } from '../config/migrate';
+import path from 'path';
+import { createJsonStore } from '../utils/json-store';
 
 export interface SessionEntry {
   id: string;
@@ -17,37 +16,21 @@ export interface SessionsData {
   [profile: string]: SessionEntry[];
 }
 
-function getSessionsPath(): string {
-  if (!process.env.AIRELAY_SESSIONS) {
-    migrateLegacyHomeDirIfNeeded();
-  }
-  return process.env.AIRELAY_SESSIONS || path.join(os.homedir(), '.airelay', 'sessions.json');
-}
+const store = createJsonStore<SessionsData>({
+  envVar: 'AIRELAY_SESSIONS',
+  defaultPath: path.join(os.homedir(), '.airelay', 'sessions.json'),
+});
 
 export function loadSessions(): SessionsData {
-  try {
-    const sessionsPath = getSessionsPath();
-    if (!fs.existsSync(sessionsPath)) {
-      return {};
-    }
-    const content = fs.readFileSync(sessionsPath, 'utf-8');
-    return JSON.parse(content) as SessionsData;
-  } catch {
-    return {};
-  }
+  return store.load();
 }
 
 function saveSessions(sessions: SessionsData): void {
-  try {
-    const sessionsPath = getSessionsPath();
-    const dir = path.dirname(sessionsPath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(sessionsPath, JSON.stringify(sessions, null, 2), 'utf-8');
-  } catch {
-    // Ignore errors when saving sessions
-  }
+  store.save(sessions);
+}
+
+export function getSessionsPath(): string {
+  return store.getPath();
 }
 
 export function addSession(
@@ -136,8 +119,8 @@ export function getSessionDisplayName(session: SessionEntry): string {
   if (session.name) {
     return session.name;
   }
-  const shortId = session.id.length > 8 ? session.id.slice(0, 8) + '...' : session.id;
-  return shortId;
+  const truncatedId = session.id.length > 8 ? session.id.slice(0, 8) + '...' : session.id;
+  return truncatedId;
 }
 
 export function findSessionByKey(
@@ -147,11 +130,9 @@ export function findSessionByKey(
 
   for (const [profile, profileSessions] of Object.entries(sessions)) {
     for (const session of profileSessions) {
-      // Match by session key
       if (session.sessionKey && session.sessionKey === keyOrId) {
         return { profile, session };
       }
-      // Match by session ID
       if (session.id === keyOrId) {
         return { profile, session };
       }

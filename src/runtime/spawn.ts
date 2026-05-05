@@ -14,11 +14,6 @@ export interface SpawnOptions {
   onPtyReady?: (pty: { pid: number; write: (data: string) => void }) => void;
 }
 
-export interface SpawnResult {
-  exitCode: number;
-  output: string;
-}
-
 function spawnChild(options: SpawnOptions) {
   const execPath = findExecutablePath(options.executable);
 
@@ -36,26 +31,6 @@ function spawnChild(options: SpawnOptions) {
   }
 
   return child;
-}
-
-export function spawnProcess(options: SpawnOptions): number {
-  const child = spawnChild(options);
-
-  return new Promise<number>((resolve) => {
-    child.on('close', (code) => {
-      if (options.trackPID && child.pid) {
-        unregisterPID(child.pid);
-      }
-      resolve(code ?? 0);
-    });
-    child.on('error', (err) => {
-      if (options.trackPID && child.pid) {
-        unregisterPID(child.pid);
-      }
-      console.error(`Failed to spawn ${options.executable}: ${err.message}`);
-      process.exit(1);
-    });
-  }) as unknown as number;
 }
 
 export function spawnAndWait(options: SpawnOptions): Promise<number> {

@@ -51,41 +51,30 @@ function buildProfileEnv(
 
 function setupController(
   sessionKey: string,
-  childStdin: { current: NodeJS.WritableStream | null },
   ptyWrite: { current: ((data: string) => void) | null }
 ) {
   const controller = new SessionController(sessionKey);
 
   controller.onRequest(async (request) => {
     if (request.method === 'session.input') {
+      if (!ptyWrite.current) {
+        throw new IpcError(
+          IpcErrorCodes.INTERNAL_ERROR,
+          'Prompt injection unavailable: this session is not in a promptable mode. Use "airelay start <profile>" for prompt-capable sessions.'
+        );
+      }
+
       const params = request.params as { text?: string; enter?: boolean };
       const text = params.text || '';
-      const appendNewline = params.enter !== false;
-
-      if (ptyWrite.current) {
-        ptyWrite.current(text);
-        if (appendNewline) {
-          // PTY raw mode: Enter key sends carriage return (\r), not line feed (\n)
-          ptyWrite.current('\r');
-        }
-        return { delivered: true, sessionKey };
+      ptyWrite.current(text);
+      if (params.enter !== false) {
+        // PTY raw mode: Enter key sends carriage return (\r), not line feed (\n)
+        ptyWrite.current('\r');
       }
-
-      if (childStdin.current) {
-        childStdin.current.write(text);
-        if (appendNewline) {
-          childStdin.current.write('\n');
-        }
-        return { delivered: true, sessionKey };
-      }
-
-      throw new IpcError(
-        IpcErrorCodes.INTERNAL_ERROR,
-        'Prompt injection unavailable: this session is not in a promptable mode. Use "airelay start <profile>" for prompt-capable sessions.'
-      );
+      return { delivered: true, sessionKey };
     }
     if (request.method === 'session.info') {
-      return { sessionKey, active: !!(ptyWrite.current || childStdin.current) };
+      return { sessionKey, active: !!ptyWrite.current };
     }
     return { handled: false };
   });
@@ -105,9 +94,8 @@ export async function runCommand(
   const { profile, cwd, env, args } = buildProfileEnv(profileName, extraArgs);
 
   const sessionKey = options?.sessionKey || generateSessionKey(profileName);
-  const childStdinRef: { current: NodeJS.WritableStream | null } = { current: null };
   const ptyWriteRef: { current: ((data: string) => void) | null } = { current: null };
-  const controller = setupController(sessionKey, childStdinRef, ptyWriteRef);
+  const controller = setupController(sessionKey, ptyWriteRef);
 
   let controllerStarted = false;
   try {
