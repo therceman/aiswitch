@@ -4,6 +4,7 @@ import os from 'os';
 import {
   setupIsolatedHarnessHome,
   removeIsolatedHarnessHome,
+  repairIsolatedHarnessHome,
   listProfileItems,
 } from '../src/utils/harness-isolate';
 import { setupEnv, cleanupEnv, setupTestEnv, createTestHarnessHome } from './test-utils';
@@ -215,6 +216,98 @@ describe('harness-isolate', () => {
           fs.rmSync(fakeProfile, { recursive: true, force: true });
         }
       }
+    });
+  });
+
+  describe('repairIsolatedHarnessHome', () => {
+    let repairDir: string;
+
+    beforeEach(() => {
+      repairDir = path.join(testDir, `repair-${Date.now()}`);
+      fs.mkdirSync(repairDir, { recursive: true });
+    });
+
+    afterEach(() => {
+      if (fs.existsSync(repairDir)) {
+        fs.rmSync(repairDir, { recursive: true, force: true });
+      }
+    });
+
+    it('should preserve auth.json when present', () => {
+      // Create auth.json in the profile dir
+      fs.writeFileSync(path.join(repairDir, 'auth.json'), '{"token":"preserve-me"}', 'utf-8');
+
+      // Add shared items to base
+      createTestHarnessHome(baseDir, {
+        files: ['config.json'],
+        dirs: ['memories'],
+      });
+
+      repairIsolatedHarnessHome('codex', 'testprofile', repairDir, baseDir);
+
+      // auth.json should still exist and be preserved
+      expect(fs.existsSync(path.join(repairDir, 'auth.json'))).toBe(true);
+      expect(fs.lstatSync(path.join(repairDir, 'auth.json')).isSymbolicLink()).toBe(false);
+      expect(fs.readFileSync(path.join(repairDir, 'auth.json'), 'utf-8')).toBe(
+        '{"token":"preserve-me"}'
+      );
+    });
+
+    it('should remove stale non-auth files', () => {
+      // Create stale files in the profile dir
+      fs.writeFileSync(path.join(repairDir, 'stale.txt'), 'old data', 'utf-8');
+      fs.mkdirSync(path.join(repairDir, 'stale-dir'), { recursive: true });
+
+      // Add shared items to base
+      createTestHarnessHome(baseDir, {
+        files: ['config.json'],
+      });
+
+      repairIsolatedHarnessHome('codex', 'testprofile', repairDir, baseDir);
+
+      // Stale files should be removed
+      expect(fs.existsSync(path.join(repairDir, 'stale.txt'))).toBe(false);
+      expect(fs.existsSync(path.join(repairDir, 'stale-dir'))).toBe(false);
+    });
+
+    it('should rebuild missing symlinks for shared items', () => {
+      createTestHarnessHome(baseDir, {
+        files: ['config.json', 'settings.toml'],
+      });
+
+      repairIsolatedHarnessHome('codex', 'testprofile', repairDir, baseDir);
+
+      // Shared items should now be symlinked
+      expect(fs.lstatSync(path.join(repairDir, 'config.json')).isSymbolicLink()).toBe(true);
+      expect(fs.lstatSync(path.join(repairDir, 'settings.toml')).isSymbolicLink()).toBe(true);
+    });
+
+    it('should replace broken symlinks with correct ones', () => {
+      createTestHarnessHome(baseDir, {
+        files: ['config.json'],
+      });
+
+      // Create a symlink pointing to wrong location
+      const wrongTarget = path.join(testDir, 'nonexistent.json');
+      fs.writeFileSync(wrongTarget, '{}', 'utf-8');
+      try {
+        fs.symlinkSync(wrongTarget, path.join(repairDir, 'config.json'), 'file');
+      } catch {
+        // Handle potential issues
+      }
+
+      repairIsolatedHarnessHome('codex', 'testprofile', repairDir, baseDir);
+
+      // Symlink should now point to baseDir
+      const target = fs.readlinkSync(path.join(repairDir, 'config.json'));
+      expect(target).toBe(path.join(baseDir, 'config.json'));
+    });
+
+    it('should be safe when profile directory does not exist', () => {
+      const missingDir = path.join(testDir, 'does-not-exist');
+
+      // Should not throw
+      repairIsolatedHarnessHome('codex', 'testprofile', missingDir, baseDir);
     });
   });
 

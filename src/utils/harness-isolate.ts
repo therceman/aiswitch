@@ -4,12 +4,14 @@ import os from 'os';
 import { getHarnessIsolationConfig } from './harness-isolation';
 
 /**
- * Sets up an isolated harness home directory based on harness-specific config.
+ * Sets up a shared-base overlay directory for a harness profile.
+ * Shared items are symlinked from the base directory; isolated items (e.g., auth.json)
+ * are kept local per-profile.
  *
  * @param harnessName - e.g., 'codex', 'opencode'
  * @param profileName - Name of the profile (used in directory name)
  * @param baseDir - Optional base directory (defaults to harness default)
- * @returns Path to the isolated profile directory
+ * @returns Path to the overlay profile directory
  */
 export function setupIsolatedHarnessHome(
   harnessName: string,
@@ -136,12 +138,134 @@ export function setupIsolatedHarnessHome(
 }
 
 /**
- * Removes an isolated harness home directory.
+ * Repairs a shared-base overlay directory for a harness profile.
+ * Preserves local items (e.g., auth.json), removes stale entries, rebuilds symlinks.
+ *
+ * The repair follows the intended overlay model:
+ * - isolatedItems (e.g., auth.json) are PRESERVED — never deleted
+ * - sharedItems are re-symlinked from ~/.codex if missing
+ * - stale entries (files or dirs not in either list) are removed
+ *
+ * @param harnessName - e.g., 'codex', 'opencode'
+ * @param profileName - Name of the profile
+ * @param profileDir - Path to the overlay profile directory
+ * @param baseDir - Optional base directory (defaults to harness default)
+ */
+export function repairIsolatedHarnessHome(
+  harnessName: string,
+  profileName: string,
+  profileDir: string,
+  baseDir?: string
+): void {
+  const config = getHarnessIsolationConfig(harnessName);
+  if (!config) {
+    throw new Error(`No isolation config found for harness: ${harnessName}`);
+  }
+
+  if (!baseDir) {
+    baseDir = expandTilde(config.defaultBaseDir);
+  }
+
+  if (!fs.existsSync(profileDir)) {
+    // Nothing to repair
+    return;
+  }
+
+  const entries = fs.readdirSync(profileDir);
+
+  for (const entry of entries) {
+    const fullPath = path.join(profileDir, entry);
+
+    // Always preserve isolated items (e.g., auth.json)
+    if (config.isolatedItems.includes(entry)) {
+      continue;
+    }
+
+    // Check if this is a valid shared symlink pointing to the base dir
+    try {
+      const stat = fs.lstatSync(fullPath, { throwIfNoEntry: false });
+      if (!stat) {
+        continue;
+      }
+
+      if (stat.isSymbolicLink()) {
+        const target = fs.readlinkSync(fullPath);
+        const expectedTarget = path.join(baseDir!, entry);
+        if (target === expectedTarget) {
+          // Symlink is correct — keep it
+          continue;
+        }
+        // Symlink points elsewhere — remove and re-create
+        fs.unlinkSync(fullPath);
+      } else {
+        // Real file/dir that is not isolated — remove stale entry
+        fs.rmSync(fullPath, { recursive: true, force: true });
+      }
+    } catch {
+      // If we can't stat it, try to remove it
+      try {
+        fs.rmSync(fullPath, { recursive: true, force: true });
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
+  }
+
+  // Rebuild shared symlinks from base directory
+  for (const item of config.sharedItems) {
+    const baseItem = path.join(baseDir!, item);
+    const profileItem = path.join(profileDir, item);
+
+    if (item.includes('*')) {
+      const pattern = item.replace(/\*/g, '');
+      if (!fs.existsSync(baseDir!)) {
+        continue;
+      }
+      const baseEntries = fs.readdirSync(baseDir!);
+      for (const entry of baseEntries) {
+        if (!entry.includes(pattern)) {
+          continue;
+        }
+        if (config.isolatedItems.includes(entry)) {
+          continue;
+        }
+        const entryBase = path.join(baseDir!, entry);
+        const entryProfile = path.join(profileDir, entry);
+        if (!fs.existsSync(entryBase) || fs.existsSync(entryProfile)) {
+          continue;
+        }
+        try {
+          const isDir = fs.statSync(entryBase).isDirectory();
+          fs.symlinkSync(entryBase, entryProfile, isDir ? 'dir' : 'file');
+        } catch {
+          // Silently skip failed symlinks
+        }
+      }
+      continue;
+    }
+
+    if (config.isolatedItems.includes(item)) {
+      continue;
+    }
+    if (!fs.existsSync(baseItem) || fs.existsSync(profileItem)) {
+      continue;
+    }
+    try {
+      const isDir = fs.statSync(baseItem).isDirectory();
+      fs.symlinkSync(baseItem, profileItem, isDir ? 'dir' : 'file');
+    } catch {
+      // Silently skip failed symlinks
+    }
+  }
+}
+
+/**
+ * Removes an overlay profile directory.
  * Only removes the profile directory, never the base/shared directory.
  *
  * @param harnessName - e.g., 'codex', 'opencode'
- * @param profileDir - Path to the isolated profile directory
- * @returns true if successful, false if directory is not isolated (safety check)
+ * @param profileDir - Path to the overlay profile directory
+ * @returns true if successful, false if directory is invalid (safety check)
  */
 export function removeIsolatedHarnessHome(harnessName: string, profileDir: string): boolean {
   const config = getHarnessIsolationConfig(harnessName);
@@ -150,7 +274,7 @@ export function removeIsolatedHarnessHome(harnessName: string, profileDir: strin
     return false;
   }
 
-  // Safety check: ensure this is actually an isolated profile
+  // Safety check: ensure this is actually an overlay profile
   // (not the base directory itself)
   const baseDir = expandTilde(config.defaultBaseDir);
 
@@ -181,7 +305,7 @@ export function removeIsolatedHarnessHome(harnessName: string, profileDir: strin
 }
 
 /**
- * Lists items in an isolated profile directory with their types.
+ * Lists items in an overlay profile directory with their types.
  * @param profileDir - Path to the profile directory
  * @returns Array of {name, type, target} where type is 'symlink', 'file', or 'dir'
  */

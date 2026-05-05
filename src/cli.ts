@@ -155,7 +155,7 @@ function parseArgs(argv: string[]): ParseResult {
 
 function showHelp(): void {
   console.log(`
-airelay - Cross-platform CLI for profile-isolated opencode/codex
+airelay - Cross-platform CLI for shared-base profile overlays
 
 Usage:
   airelay <command> [options]
@@ -173,8 +173,8 @@ Commands:
   select                Interactive profile selector (TUI)
   ps                    List tracked processes
   cleanup               Kill orphaned processes
-  isolate [name]        Isolate profile auth (symlink shared data)
-  remove [name]         Remove isolated profile (safe, keeps shared data)
+  isolate [name]        Show/set up overlay for codex executable profiles
+  remove [name]         Remove profile overlay (safe, keeps shared data)
   prompt <session>      Send input to an active session
   sessions              List saved sessions
   help                  Show this help message

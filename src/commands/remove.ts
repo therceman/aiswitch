@@ -9,8 +9,8 @@ export async function removeCommand(profileName?: string): Promise<void> {
   const configPath = getConfigPath();
 
   if (!profileName) {
-    // Show all isolated codex profiles
-    const isolatedProfiles = Object.entries(config.profiles)
+    // Show all codex overlay profiles
+    const overlayProfiles = Object.entries(config.profiles)
       .filter(([, p]) => {
         const profile = p as { executable: string; env?: { CODEX_HOME?: string } };
         if (profile.executable !== 'codex') return false;
@@ -25,14 +25,14 @@ export async function removeCommand(profileName?: string): Promise<void> {
         };
       });
 
-    if (isolatedProfiles.length === 0) {
-      console.log('No isolated Codex profiles found.');
-      console.log('Isolated profiles are those with CODEX_HOME in ~/.airelay/codex-<name>');
+    if (overlayProfiles.length === 0) {
+      console.log('No overlay profiles for codex executable found.');
+      console.log('Overlay profiles are those with CODEX_HOME in ~/.airelay/codex-<name>');
       return;
     }
 
-    console.log('Isolated Codex profiles (run with profile name to remove):');
-    for (const p of isolatedProfiles) {
+    console.log('Overlay profiles (codex executable, run with name to remove):');
+    for (const p of overlayProfiles) {
       console.log(`  ${p.name} → ${p.codexHome}`);
     }
     return;
@@ -50,17 +50,17 @@ export async function removeCommand(profileName?: string): Promise<void> {
 
   if (profile.executable !== 'codex') {
     console.error(
-      `Profile '${profileName}' is not a Codex profile (executable: ${profile.executable}).`
+      `Profile '${profileName}' executable is '${profile.executable}', not 'codex'. Overlay profiles require codex executable.`
     );
     return;
   }
 
   const codexHome = profile.env?.CODEX_HOME;
   if (!codexHome || !codexHome.includes('.airelay/codex-')) {
-    console.error(`Profile '${profileName}' is not an isolated Codex profile.`);
+    console.error(`Profile '${profileName}' does not use a Codex overlay.`);
     console.error(`CODEX_HOME: ${codexHome || 'not set'}`);
     console.error(
-      '\nOnly isolated profiles (with CODEX_HOME in ~/.airelay/codex-<name>) can be removed.'
+      '\nOnly overlay profiles (with CODEX_HOME in ~/.airelay/codex-<name>) can be removed.'
     );
     console.error('The default codex profile cannot be removed.');
     return;
@@ -69,7 +69,7 @@ export async function removeCommand(profileName?: string): Promise<void> {
   // Check if directory exists
   const directoryExists = fs.existsSync(codexHome);
 
-  // Count symlinks to verify it's an isolated profile
+  // Count symlinks to verify it's an overlay profile
   let symlinkCount = 0;
   let realFileCount = 0;
   if (directoryExists) {
@@ -109,9 +109,9 @@ export async function removeCommand(profileName?: string): Promise<void> {
   console.log(`  - Remove profile from config.yaml`);
   console.log();
   console.log('✓  This will NOT:');
-  console.log('  - Touch ~/.codex (default Codex home)');
-  console.log('  - Affect other isolated profiles');
-  console.log('  - Delete symlinks targets (shared data is safe)');
+  console.log('  - Touch ~/.codex (shared codex home)');
+  console.log('  - Affect other overlay profiles');
+  console.log('  - Delete symlink targets (shared data is safe)');
   console.log();
 
   // Confirm removal

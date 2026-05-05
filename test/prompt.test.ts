@@ -102,7 +102,7 @@ describe('promptCommand', () => {
       expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Prompt sent successfully'));
     });
 
-    it('includes enter:true by default', async () => {
+    it('includes enter as submit byte by default', async () => {
       mockSessionFound();
       const exitCodePromise = promptCommand('testprofile_1234', 'hello');
 
@@ -110,7 +110,8 @@ describe('promptCommand', () => {
 
       await exitCodePromise;
       const socket = mockSocketInstance;
-      expect(socket?.write).toHaveBeenCalledWith(expect.stringContaining('"enter":true'));
+      // Default for opencode/unknown profiles is "\r" (Enter)
+      expect(socket?.write).toHaveBeenCalledWith(expect.stringContaining('"enter":"\\r"'));
     });
 
     it('passes enter:false when options.enter is false', async () => {

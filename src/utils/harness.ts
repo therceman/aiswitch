@@ -26,6 +26,33 @@ export function getSessionArgExample(harness: HarnessType): string {
   }
 }
 
+/**
+ * Declared input behavior capabilities per harness type.
+ * Used instead of hardcoded harness-name branching for prompt submit decisions.
+ */
+export interface HarnessCapabilities {
+  /**
+   * Default byte to append after prompt text for submission.
+   * - "\r" (0x0D) = Enter (opencode, terminal)
+   * - "\n" (0x0A) = Ctrl+J (codex)
+   */
+  defaultSubmitByte: '\r' | '\n';
+}
+
+const HARNESS_CAPABILITIES: Record<HarnessType, HarnessCapabilities> = {
+  opencode: { defaultSubmitByte: '\r' },
+  codex: { defaultSubmitByte: '\n' },
+  unknown: { defaultSubmitByte: '\r' },
+};
+
+/**
+ * Returns the declared capabilities for a given harness type.
+ * Unknown harnesses default to Enter semantics for broadest compatibility.
+ */
+export function getHarnessCapabilities(harness: HarnessType): HarnessCapabilities {
+  return HARNESS_CAPABILITIES[harness] || { defaultSubmitByte: '\r' };
+}
+
 export function getArgsHelpMessage(harness: HarnessType, hasSession: boolean): string {
   if (hasSession) {
     return 'Additional args (or press enter to use session)';

@@ -7,7 +7,11 @@ import { Profile, ProfileSchema } from '../config/schema';
 import { profileToYaml } from '../utils/yaml';
 import { detectHarness } from '../utils/harness';
 import { detectAvailableHarnesses } from '../utils/detect-harnesses';
-import { setupIsolatedHarnessHome, getHarnessIsolationConfig } from '../utils/harness-isolate';
+import {
+  setupIsolatedHarnessHome,
+  repairIsolatedHarnessHome,
+  getHarnessIsolationConfig,
+} from '../utils/harness-isolate';
 
 interface CreateOptions {
   name?: string;
@@ -100,16 +104,20 @@ export async function createCommandInteractive(opts: CreateOptions = {}): Promis
     isolationConfig &&
     (isolationConfig.isolatedItems.length > 0 || isolationConfig.sharedItems.length > 0)
   ) {
-    // Set up isolated harness home with config-specific symlinks
+    // Set up shared-base overlay with local-only auth
     configDir = setupIsolatedHarnessHome(harness, name);
-    console.log(`Created isolated ${harness} home: ${configDir}`);
+
+    // Repair existing overlay: remove stale non-auth entries, rebuild symlinks
+    repairIsolatedHarnessHome(harness, name, configDir);
+
+    console.log(`Created ${harness} profile overlay at: ${configDir}`);
 
     if (isolationConfig.isolatedItems.length > 0) {
-      console.log(`  - Isolated: ${isolationConfig.isolatedItems.join(', ')}`);
+      console.log(`  - Local (per-profile): ${isolationConfig.isolatedItems.join(', ')}`);
     }
     if (isolationConfig.sharedItems.length > 0) {
       console.log(
-        `  - Shared (symlinked): ${isolationConfig.sharedItems.slice(0, 5).join(', ')}...`
+        `  - Shared (symlinked from ~/.codex): ${isolationConfig.sharedItems.slice(0, 5).join(', ')}...`
       );
     }
   } else if (harness === 'opencode') {
@@ -143,7 +151,7 @@ export async function createCommandInteractive(opts: CreateOptions = {}): Promis
   if (harness === 'codex' && configDir) {
     (profile.env as Record<string, string>)['CODEX_HOME'] = configDir;
 
-    // Create the isolated codex config directory
+    // Create the codex config directory
     if (!fs.existsSync(configDir)) {
       fs.mkdirSync(configDir, { recursive: true });
     }

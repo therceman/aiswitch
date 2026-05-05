@@ -64,12 +64,14 @@ function setupController(
         );
       }
 
-      const params = request.params as { text?: string; enter?: boolean };
+      const params = request.params as { text?: string; enter?: string | boolean };
       const text = params.text || '';
       ptyWrite.current(text);
-      if (params.enter !== false) {
-        // PTY raw mode: Enter key sends carriage return (\r), not line feed (\n)
-        ptyWrite.current('\r');
+      const submit = params.enter;
+      if (submit !== false && submit !== undefined) {
+        // submit is either a boolean true (use default \r) or a string (explicit byte)
+        const byte = typeof submit === 'string' ? submit : '\r';
+        ptyWrite.current(byte);
       }
       return { delivered: true, sessionKey };
     }

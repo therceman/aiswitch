@@ -1,6 +1,6 @@
 # airelay
 
-Cross-platform CLI for launching profile-isolated OpenCode/Codex instances with separate config and data directories.
+Cross-platform CLI for launching profile-isolated harness instances with shared-base overlay support.
 
 ## Tech Stack
 

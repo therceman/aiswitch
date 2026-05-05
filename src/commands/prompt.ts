@@ -2,6 +2,8 @@ import net from 'net';
 import { findSessionByKey } from './sessions';
 import { getIpcEndpointPath } from '../utils/ipc-path';
 import { readLines } from '../controller/protocol';
+import { detectHarness, getHarnessCapabilities } from '../utils/harness';
+import { loadConfig } from '../config/load';
 
 const IPC_TIMEOUT = 5000;
 
@@ -89,13 +91,28 @@ export async function promptCommand(
 
   const sessionKey = found.session.sessionKey || found.session.id;
   const endpointPath = found.session.controllerEndpoint || getIpcEndpointPath(sessionKey);
-  const enter = options?.enter !== false;
+
+  // Determine submit byte based on profile harness
+  const callerEnter = options?.enter;
+  let submitByte: string | boolean;
+  if (callerEnter === false) {
+    submitByte = false;
+  } else if (typeof callerEnter === 'string') {
+    // Caller explicitly specified the submit byte
+    submitByte = callerEnter;
+  } else {
+    // Default: resolve from harness capabilities
+    const config = loadConfig();
+    const profile = config.profiles[found.profile] as { executable?: string } | undefined;
+    const harness = profile?.executable ? detectHarness(profile.executable) : 'unknown';
+    submitByte = getHarnessCapabilities(harness).defaultSubmitByte;
+  }
 
   try {
     const response = await sendIpcRequest(endpointPath, {
       id: 'prompt-1',
       method: 'session.input',
-      params: { text: resolvedText, enter },
+      params: { text: resolvedText, enter: submitByte },
     });
 
     if (response.type === 'error' && response.error) {

@@ -12,7 +12,13 @@ export interface SessionInfoParams {
 
 export interface SessionInputParams {
   text: string;
-  enter?: boolean;
+  /**
+   * Submit byte to append after text.
+   * - "\r" (0x0D) = Enter (default for opencode/unknown)
+   * - "\n" (0x0A) = Ctrl+J (default for codex)
+   * - false or absent = no submit byte
+   */
+  enter?: string | boolean;
 }
 
 export interface IpcSuccessResponse<T = unknown> {
