@@ -19,7 +19,7 @@ export async function resumeCommand(profileOrSessionKey: string): Promise<void> 
   const config = loadConfig();
   if (!config.profiles[profileOrSessionKey]) {
     console.error(`Error: Profile or session not found: ${profileOrSessionKey}`);
-    console.error('Usage: aiswitch resume <profile|session-key>');
+    console.error('Usage: airelay resume <profile|session-key>');
     process.exit(1);
   }
 

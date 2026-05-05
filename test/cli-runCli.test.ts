@@ -57,7 +57,7 @@ describe('runCli', () => {
 
     expect(console.log).toHaveBeenCalled();
     const output = (console.log as jest.Mock).mock.calls[0][0];
-    expect(output).toContain('aiswitch - Cross-platform CLI');
+    expect(output).toContain('airelay - Cross-platform CLI');
     expect(output).toContain('Usage:');
     expect(output).toContain('Commands:');
     expect(output).toContain('help');
@@ -113,7 +113,7 @@ describe('runCli', () => {
     await runCli();
 
     expect(console.error).toHaveBeenCalledWith('Error: Profile name required');
-    expect(console.error).toHaveBeenCalledWith('Usage: aiswitch which <profile>');
+    expect(console.error).toHaveBeenCalledWith('Usage: airelay which <profile>');
     expect(process.exit).toHaveBeenCalledWith(1);
   });
 
@@ -203,7 +203,7 @@ describe('runCli', () => {
     await runCli();
 
     expect(console.error).toHaveBeenCalledWith('Error: Profile name required');
-    expect(console.error).toHaveBeenCalledWith('Usage: aiswitch run <profile>');
+    expect(console.error).toHaveBeenCalledWith('Usage: airelay run <profile>');
     expect(process.exit).toHaveBeenCalledWith(1);
   });
 
@@ -245,34 +245,34 @@ describe('runCli', () => {
 
 describe('parseArgs', () => {
   it('parses help command', () => {
-    const result = parseArgs(['node', 'aiswitch', 'help']);
+    const result = parseArgs(['node', 'airelay', 'help']);
     expect(result.command).toBe('help');
     expect(result.args).toEqual([]);
     expect(result.flags).toEqual({});
   });
 
   it('parses help command - extra args become profile (limitation)', () => {
-    const result = parseArgs(['node', 'aiswitch', 'help', 'extra']);
+    const result = parseArgs(['node', 'airelay', 'help', 'extra']);
     expect(result.command).toBe('help');
     // Note: parser treats first positional as profile for all commands
     expect(result.profile).toBe('extra');
   });
 
   it('handles unknown command as profile run', () => {
-    const result = parseArgs(['node', 'aiswitch', 'unknown']);
+    const result = parseArgs(['node', 'airelay', 'unknown']);
     expect(result.command).toBe('run');
     expect(result.profile).toBe('unknown');
   });
 
   it('handles empty args as select', () => {
-    const result = parseArgs(['node', 'aiswitch']);
+    const result = parseArgs(['node', 'airelay']);
     expect(result.command).toBe('select');
   });
 
   it('parses all known commands', () => {
     const commands = ['init', 'create', 'list', 'which', 'doctor', 'run', 'help', 'select'];
     commands.forEach((cmd) => {
-      const result = parseArgs(['node', 'aiswitch', cmd]);
+      const result = parseArgs(['node', 'airelay', cmd]);
       expect(result.command).toBe(cmd);
     });
   });

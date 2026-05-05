@@ -1,4 +1,4 @@
-# aiswitch
+# airelay
 
 Cross-platform CLI for launching profile-isolated OpenCode/Codex instances with separate config and data directories.
 
@@ -26,7 +26,7 @@ Dev dependencies:
 ## Install
 
 ```bash
-npm install -g aiswitch
+npm install -g airelay
 ```
 
 Or from source:
@@ -40,15 +40,15 @@ npm link
 ## Quick Start
 
 ```bash
-aiswitch init
+airelay init
 ```
 
-This creates `~/.aiswitch/config.yaml` with example profiles.
+This creates `~/.airelay/config.yaml` with example profiles.
 
 ## Config Location
 
-- Default: `~/.aiswitch/config.yaml`
-- Override: `AIUSE_CONFIG=/path/to/config.yaml`
+- Default: `~/.airelay/config.yaml`
+- Override: `AIRELAY_CONFIG=/path/to/config.yaml`
 
 ## Config Format
 
@@ -62,8 +62,8 @@ profiles:
     description: Work profile
     env:
       OPENCODE_CONFIG_DIR: ~/.config/opencode-work
-      XDG_CONFIG_HOME: ~/.aiswitch/opencode-work/config
-      XDG_DATA_HOME: ~/.aiswitch/opencode-work/data
+      XDG_CONFIG_HOME: ~/.airelay/opencode-work/config
+      XDG_DATA_HOME: ~/.airelay/opencode-work/data
 
   codex-personal:
     executable: codex
@@ -79,32 +79,32 @@ profiles:
 ## Commands
 
 ```bash
-aiswitch <profile>              # Run profile (alias of run)
-aiswitch run <profile> [-- ...args]
-aiswitch list                   # List all profiles
-aiswitch which <profile>        # Show resolved runtime details
-aiswitch doctor [profile]       # Run diagnostics
-aiswitch init                  # Create starter config
+airelay <profile>              # Run profile (alias of run)
+airelay run <profile> [-- ...args]
+airelay list                   # List all profiles
+airelay which <profile>        # Show resolved runtime details
+airelay doctor [profile]       # Run diagnostics
+airelay init                  # Create starter config
 ```
 
 ## Examples
 
 ```bash
-aiswitch opencode-work
-aiswitch opencode-work --help
-aiswitch opencode-work -m fast
-aiswitch opencode-work -s ses_273323d6cffeRj1UNM002zx3wJ  # Resume opencode session
-aiswitch codex-personal --sandbox workspace-write
-aiswitch codex-work resume 029d71b4-5ef8-73b1-af8a-93c2e6812630  # Resume codex session
-aiswitch which opencode-work
-aiswitch doctor
+airelay opencode-work
+airelay opencode-work --help
+airelay opencode-work -m fast
+airelay opencode-work -s ses_273323d6cffeRj1UNM002zx3wJ  # Resume opencode session
+airelay codex-personal --sandbox workspace-write
+airelay codex-work resume 029d71b4-5ef8-73b1-af8a-93c2e6812630  # Resume codex session
+airelay which opencode-work
+airelay doctor
 ```
 
 Note: Arguments after the profile name are passed directly to the child process. No need for `--` separator unless you want to be explicit.
 
 ## How It Works
 
-1. Load config from `~/.aiswitch/config.yaml`
+1. Load config from `~/.airelay/config.yaml`
 2. Resolve paths (expand `~` to home directory)
 3. Merge profile env with parent environment
 4. Spawn executable with inherited stdio

@@ -9,17 +9,17 @@ export interface TestEnv {
   lastUsedPath: string;
   pidsPath: string;
   originalEnv: {
-    AIUSE_CONFIG?: string;
-    AIUSE_SESSIONS?: string;
-    AIUSE_LAST_USED?: string;
-    AIUSE_PIDS?: string;
+    AIRELAY_CONFIG?: string;
+    AIRELAY_SESSIONS?: string;
+    AIRELAY_LAST_USED?: string;
+    AIRELAY_PIDS?: string;
   };
 }
 
 /**
  * Creates an isolated test environment with temp config files.
- * Automatically sets AIUSE_* environment variables to prevent tests
- * from touching the real ~/.aiswitch directory.
+ * Automatically sets AIRELAY_* environment variables to prevent tests
+ * from touching the real ~/.airelay directory.
  *
  * Usage:
  * ```ts
@@ -35,17 +35,17 @@ export interface TestEnv {
  * ```
  */
 export function setupTestEnv(): TestEnv {
-  const testDir = path.join(os.tmpdir(), `aiswitch-test-${process.pid}-${Date.now()}`);
+  const testDir = path.join(os.tmpdir(), `airelay-test-${process.pid}-${Date.now()}`);
   const configPath = path.join(testDir, 'config.yaml');
   const sessionsPath = path.join(testDir, 'sessions.json');
   const lastUsedPath = path.join(testDir, 'last-used');
   const pidsPath = path.join(testDir, 'pids.json');
 
   const originalEnv = {
-    AIUSE_CONFIG: process.env.AIUSE_CONFIG,
-    AIUSE_SESSIONS: process.env.AIUSE_SESSIONS,
-    AIUSE_LAST_USED: process.env.AIUSE_LAST_USED,
-    AIUSE_PIDS: process.env.AIUSE_PIDS,
+    AIRELAY_CONFIG: process.env.AIRELAY_CONFIG,
+    AIRELAY_SESSIONS: process.env.AIRELAY_SESSIONS,
+    AIRELAY_LAST_USED: process.env.AIRELAY_LAST_USED,
+    AIRELAY_PIDS: process.env.AIRELAY_PIDS,
   };
 
   return {
@@ -61,21 +61,21 @@ export function setupTestEnv(): TestEnv {
 /**
  * Sets up the test environment:
  * - Creates temp directory
- * - Sets all AIUSE_* environment variables
+ * - Sets all AIRELAY_* environment variables
  */
 export function setupEnv(env: TestEnv): void {
   fs.mkdirSync(env.testDir, { recursive: true });
 
-  process.env.AIUSE_CONFIG = env.configPath;
-  process.env.AIUSE_SESSIONS = env.sessionsPath;
-  process.env.AIUSE_LAST_USED = env.lastUsedPath;
-  process.env.AIUSE_PIDS = env.pidsPath;
+  process.env.AIRELAY_CONFIG = env.configPath;
+  process.env.AIRELAY_SESSIONS = env.sessionsPath;
+  process.env.AIRELAY_LAST_USED = env.lastUsedPath;
+  process.env.AIRELAY_PIDS = env.pidsPath;
 }
 
 /**
  * Cleans up the test environment:
  * - Removes temp directory
- * - Restores original AIUSE_* environment variables
+ * - Restores original AIRELAY_* environment variables
  */
 export function cleanupEnv(env: TestEnv): void {
   try {
@@ -87,34 +87,34 @@ export function cleanupEnv(env: TestEnv): void {
   }
 
   // Restore original environment
-  if (env.originalEnv.AIUSE_CONFIG) {
-    process.env.AIUSE_CONFIG = env.originalEnv.AIUSE_CONFIG;
+  if (env.originalEnv.AIRELAY_CONFIG) {
+    process.env.AIRELAY_CONFIG = env.originalEnv.AIRELAY_CONFIG;
   } else {
-    delete process.env.AIUSE_CONFIG;
+    delete process.env.AIRELAY_CONFIG;
   }
 
-  if (env.originalEnv.AIUSE_SESSIONS) {
-    process.env.AIUSE_SESSIONS = env.originalEnv.AIUSE_SESSIONS;
+  if (env.originalEnv.AIRELAY_SESSIONS) {
+    process.env.AIRELAY_SESSIONS = env.originalEnv.AIRELAY_SESSIONS;
   } else {
-    delete process.env.AIUSE_SESSIONS;
+    delete process.env.AIRELAY_SESSIONS;
   }
 
-  if (env.originalEnv.AIUSE_LAST_USED) {
-    process.env.AIUSE_LAST_USED = env.originalEnv.AIUSE_LAST_USED;
+  if (env.originalEnv.AIRELAY_LAST_USED) {
+    process.env.AIRELAY_LAST_USED = env.originalEnv.AIRELAY_LAST_USED;
   } else {
-    delete process.env.AIUSE_LAST_USED;
+    delete process.env.AIRELAY_LAST_USED;
   }
 
-  if (env.originalEnv.AIUSE_PIDS) {
-    process.env.AIUSE_PIDS = env.originalEnv.AIUSE_PIDS;
+  if (env.originalEnv.AIRELAY_PIDS) {
+    process.env.AIRELAY_PIDS = env.originalEnv.AIRELAY_PIDS;
   } else {
-    delete process.env.AIUSE_PIDS;
+    delete process.env.AIRELAY_PIDS;
   }
 }
 
 /**
  * Creates a minimal config file for testing.
- * Use this instead of running `aiswitch init` in tests.
+ * Use this instead of running `airelay init` in tests.
  */
 export function createTestConfig(configPath: string, profiles: Record<string, unknown> = {}): void {
   const config = {

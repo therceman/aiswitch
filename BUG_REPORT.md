@@ -2,7 +2,7 @@
 
 ## Summary
 
-Running `aiswitch help` (or `node dist/cli.js help`) produces **no output** and exits with code 0, though the code appears correct.
+Running `airelay help` (or `node dist/cli.js help`) produces **no output** and exits with code 0, though the code appears correct.
 
 ## Environment
 
@@ -38,7 +38,7 @@ $ node dist/cli.js help
 $ ./dist/cli.js help
 # NO OUTPUT, exit code 0
 
-$ aiswitch help
+$ airelay help
 # NO OUTPUT, exit code 0
 ```
 
@@ -72,7 +72,7 @@ async function runCli() {
       case 'create':
         if (!profile) {
           console.error('Error: Profile name required');
-          console.error('Usage: aiswitch create <name>');
+          console.error('Usage: airelay create <name>');
           process.exit(1);
         }
         await createCommand(profile, flags.executable, flags.apiKey, flags.dir);
@@ -88,7 +88,7 @@ async function runCli() {
       case 'which':
         if (!profile) {
           console.error('Error: Profile name required');
-          console.error('Usage: aiswitch which <profile>');
+          console.error('Usage: airelay which <profile>');
           process.exit(1);
         }
         whichCommand(profile);
@@ -99,7 +99,7 @@ async function runCli() {
       case 'run':
         if (!profile) {
           console.error('Error: Profile name required');
-          console.error('Usage: aiswitch run <profile>');
+          console.error('Usage: airelay run <profile>');
           process.exit(1);
         }
         {
@@ -132,11 +132,11 @@ async function runCli() {
 ```typescript
 function showHelp() {
   console.log(`
-aiswitch - Cross-platform CLI for profile-isolated opencode/codex
+airelay - Cross-platform CLI for profile-isolated opencode/codex
 
 Usage:
-  aiswitch <command> [options]
-  aiswitch <profile> [args...]
+  airelay <command> [options]
+  airelay <profile> [args...]
 
 Commands:
   init              Initialize config with auto-detected runtimes
@@ -148,11 +148,11 @@ Commands:
   help              Show this help message
 
 Examples:
-  aiswitch init
-  aiswitch create myprofile -e opencode
-  aiswitch opencode --help
-  aiswitch myprofile -m fast
-  aiswitch run myprofile --verbose
+  airelay init
+  airelay create myprofile -e opencode
+  airelay opencode --help
+  airelay myprofile -m fast
+  airelay run myprofile --verbose
 
 Create options:
   -e, --executable <name>  Executable name (opencode or codex)
@@ -179,7 +179,7 @@ function parseArgs(argv: string[]): ParseResult {
   const takesProfile = command && PROFILE_COMMANDS.includes(command);
 
   if (!isKnownCommand) {
-    // Handle profile-as-command (e.g., "aiswitch myprofile")
+    // Handle profile-as-command (e.g., "airelay myprofile")
     if (!command && args.length === 0) {
       return {
         command: 'select',
@@ -282,7 +282,7 @@ $ node -e "
   process.exit = (code) => { throw new Error('Exit: ' + code); };
   require('./dist/cli.js').runCli();
 "
-# Error: Config file not found: /Users/therceman/.aiswitch/config.yaml
+# Error: Config file not found: /Users/therceman/.airelay/config.yaml
 # Then: Exit intercepted: 1
 ```
 
@@ -357,7 +357,7 @@ Current tests (test/cli.test.ts) only test `parseArgs`:
 import { parseArgs } from '../src/cli';
 
 it('parses help command', () => {
-  const result = parseArgs(['node', 'aiswitch', 'help']);
+  const result = parseArgs(['node', 'airelay', 'help']);
   expect(result.command).toBe('help');
 });
 ```
@@ -376,7 +376,7 @@ it('parses help command', () => {
 case 'run':
   if (!profile) {
     console.error('Error: Profile name required');
-    console.error('Usage: aiswitch run <profile>');
+    console.error('Usage: airelay run <profile>');
     process.exit(1);
   }
   {

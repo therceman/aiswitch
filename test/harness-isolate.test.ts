@@ -18,7 +18,7 @@ import { setupEnv, cleanupEnv, setupTestEnv, createTestHarnessHome } from './tes
  * 5. If item is in both isolatedItems and sharedItems, isolated wins (no symlink)
  * 6. Existing files in profile should not be overwritten
  * 7. Missing base directory items should be skipped
- * 8. Remove should only work on .aiswitch directories
+ * 8. Remove should only work on .airelay directories
  */
 describe('harness-isolate', () => {
   let testDir: string;
@@ -101,8 +101,8 @@ describe('harness-isolate', () => {
     });
 
     it('should skip symlinks for files that already exist in profile', () => {
-      // Pre-create the profile directory in test dir (respects AIUSE_CONFIG)
-      // When AIUSE_CONFIG is set, profiles go directly in that dir (not .aiswitch subfolder)
+      // Pre-create the profile directory in test dir (respects AIRELAY_CONFIG)
+      // When AIRELAY_CONFIG is set, profiles go directly in that dir (not .airelay subfolder)
       const profileDir = path.join(testDir, 'codex-testprofile');
       fs.mkdirSync(profileDir, { recursive: true });
       fs.writeFileSync(path.join(profileDir, 'auth.json'), '{"token":"test"}');
@@ -180,14 +180,14 @@ describe('harness-isolate', () => {
     });
 
     it('should refuse to remove base directory', () => {
-      // baseDir is ~/.codex mock, which is outside aiswitch folder
-      // But in tests, baseDir is inside testDir which IS the aiswitch folder
+      // baseDir is ~/.codex mock, which is outside airelay folder
+      // But in tests, baseDir is inside testDir which IS the airelay folder
       // So we need to use a directory outside testDir
-      const outsideDir = path.join(os.tmpdir(), `outside-aiswitch-${Date.now()}`);
+      const outsideDir = path.join(os.tmpdir(), `outside-airelay-${Date.now()}`);
       fs.mkdirSync(outsideDir, { recursive: true });
 
       try {
-        // This should fail because outsideDir is not in aiswitch folder
+        // This should fail because outsideDir is not in airelay folder
         const result = removeIsolatedHarnessHome('codex', outsideDir);
         expect(result).toBe(false);
         expect(fs.existsSync(outsideDir)).toBe(true);
@@ -198,8 +198,8 @@ describe('harness-isolate', () => {
       }
     });
 
-    it('should refuse to remove non-.aiswitch directories', () => {
-      // Use a directory outside the test aiswitch folder
+    it('should refuse to remove non-.airelay directories', () => {
+      // Use a directory outside the test airelay folder
       const fakeProfile = path.join(os.tmpdir(), `fake-profile-${Date.now()}`);
       fs.mkdirSync(fakeProfile, { recursive: true });
 

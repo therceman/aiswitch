@@ -60,15 +60,15 @@ describe('initCommand', () => {
   it('creates config directory if missing', () => {
     const newDir = path.join(testEnv.testDir, 'new-config-dir-' + Date.now());
     const newConfigPath = path.join(newDir, 'config.yaml');
-    const savedConfig = process.env.AIUSE_CONFIG;
-    process.env.AIUSE_CONFIG = newConfigPath;
+    const savedConfig = process.env.AIRELAY_CONFIG;
+    process.env.AIRELAY_CONFIG = newConfigPath;
 
     try {
       initCommand(true);
       expect(fs.existsSync(newDir)).toBe(true);
       expect(fs.existsSync(newConfigPath)).toBe(true);
     } finally {
-      process.env.AIUSE_CONFIG = savedConfig;
+      process.env.AIRELAY_CONFIG = savedConfig;
       if (fs.existsSync(newDir)) {
         fs.rmSync(newDir, { recursive: true });
       }

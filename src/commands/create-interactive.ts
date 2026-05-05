@@ -117,7 +117,7 @@ export async function createCommandInteractive(opts: CreateOptions = {}): Promis
     configDir = path.join(os.homedir(), '.config', 'opencode');
   } else {
     // Other harnesses get isolated config
-    configDir = path.join(os.homedir(), '.aiswitch', 'profiles', name, 'config');
+    configDir = path.join(os.homedir(), '.airelay', 'profiles', name, 'config');
   }
 
   if (!apiKeyVal) {
@@ -175,5 +175,5 @@ export async function createCommandInteractive(opts: CreateOptions = {}): Promis
 
   console.log(`\nCreated profile '${name}' in ${configPath}`);
   console.log(`Config directory: ${configDir}`);
-  console.log(`\nUsage: aiswitch ${name}`);
+  console.log(`\nUsage: airelay ${name}`);
 }

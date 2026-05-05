@@ -1,7 +1,7 @@
 import os from 'os';
 import path from 'path';
 
-export const DEFAULT_CONFIG_DIR = path.join(os.homedir(), '.aiswitch');
+export const DEFAULT_CONFIG_DIR = path.join(os.homedir(), '.airelay');
 export const DEFAULT_CONFIG_FILE = path.join(DEFAULT_CONFIG_DIR, 'config.yaml');
 
 export const STARTER_CONFIG = `version: 1
@@ -13,8 +13,8 @@ profiles:
     description: Work profile for opencode
     env:
       OPENCODE_CONFIG_DIR: ~/.config/opencode-work
-      XDG_CONFIG_HOME: ~/.aiswitch/opencode-work/config
-      XDG_DATA_HOME: ~/.aiswitch/opencode-work/data
+      XDG_CONFIG_HOME: ~/.airelay/opencode-work/config
+      XDG_DATA_HOME: ~/.airelay/opencode-work/data
 
   codex-personal:
     executable: codex

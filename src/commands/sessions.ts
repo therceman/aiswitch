@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { migrateLegacyHomeDirIfNeeded } from '../config/migrate';
 
 interface SessionEntry {
   id: string;
@@ -17,7 +18,10 @@ interface SessionsData {
 }
 
 function getSessionsPath(): string {
-  return process.env.AIUSE_SESSIONS || path.join(os.homedir(), '.aiswitch', 'sessions.json');
+  if (!process.env.AIRELAY_SESSIONS) {
+    migrateLegacyHomeDirIfNeeded();
+  }
+  return process.env.AIRELAY_SESSIONS || path.join(os.homedir(), '.airelay', 'sessions.json');
 }
 
 function loadSessions(): SessionsData {

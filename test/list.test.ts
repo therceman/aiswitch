@@ -4,7 +4,7 @@ import path from 'path';
 import os from 'os';
 
 describe('listCommand', () => {
-  const testDir = path.join(os.tmpdir(), 'aiswitch-list-test-' + Date.now());
+  const testDir = path.join(os.tmpdir(), 'airelay-list-test-' + Date.now());
   const testConfigPath = path.join(testDir, 'config.yaml');
 
   beforeAll(() => {
@@ -16,11 +16,11 @@ describe('listCommand', () => {
   });
 
   beforeEach(() => {
-    delete process.env.AIUSE_CONFIG;
+    delete process.env.AIRELAY_CONFIG;
   });
 
   afterEach(() => {
-    delete process.env.AIUSE_CONFIG;
+    delete process.env.AIRELAY_CONFIG;
   });
 
   it('lists profiles sorted alphabetically', () => {
@@ -33,7 +33,7 @@ profiles:
   alpha:
     executable: codex`
     );
-    process.env.AIUSE_CONFIG = testConfigPath;
+    process.env.AIRELAY_CONFIG = testConfigPath;
 
     const logs: string[] = [];
     const originalLog = console.log;
@@ -64,7 +64,7 @@ profiles:
     args:
       - --verbose`
     );
-    process.env.AIUSE_CONFIG = testConfigPath;
+    process.env.AIRELAY_CONFIG = testConfigPath;
 
     const logs: string[] = [];
     const originalLog = console.log;
@@ -90,7 +90,7 @@ profiles:
   test:
     executable: opencode`
     );
-    process.env.AIUSE_CONFIG = testConfigPath;
+    process.env.AIRELAY_CONFIG = testConfigPath;
 
     const profiles = listCommandJson();
     expect(profiles.test).toBeDefined();

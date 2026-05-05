@@ -2,11 +2,11 @@
 
 ## Overview
 
-The `test-utils.ts` module provides helper functions to create isolated test environments that **never touch your real `~/.aiswitch` directory**.
+The `test-utils.ts` module provides helper functions to create isolated test environments that **never touch your real `~/.airelay` directory**.
 
 ## Why?
 
-**Problem:** Tests were accidentally overwriting the real config file at `~/.aiswitch/config.yaml`, deleting user profiles.
+**Problem:** Tests were accidentally overwriting the real config file at `~/.airelay/config.yaml`, deleting user profiles.
 
 **Solution:** All tests now use temporary directories with isolated config files via environment variables.
 
@@ -29,8 +29,8 @@ describe('MyCommand', () => {
     // Use testEnv.configPath instead of hardcoded paths
     fs.writeFileSync(testEnv.configPath, '...');
 
-    // AIUSE_CONFIG is automatically set to testEnv.configPath
-    // Your real ~/.aiswitch is never touched
+    // AIRELAY_CONFIG is automatically set to testEnv.configPath
+    // Your real ~/.airelay is never touched
   });
 });
 ```
@@ -39,12 +39,12 @@ describe('MyCommand', () => {
 
 The `useTestEnv()` hook:
 
-1. **Creates temp directory**: `/tmp/aiswitch-test-<pid>-<timestamp>`
+1. **Creates temp directory**: `/tmp/airelay-test-<pid>-<timestamp>`
 2. **Sets environment variables**:
-   - `AIUSE_CONFIG` → `<temp>/config.yaml`
-   - `AIUSE_SESSIONS` → `<temp>/sessions.json`
-   - `AIUSE_LAST_USED` → `<temp>/last-used`
-   - `AIUSE_PIDS` → `<temp>/pids.json`
+   - `AIRELAY_CONFIG` → `<temp>/config.yaml`
+   - `AIRELAY_SESSIONS` → `<temp>/sessions.json`
+   - `AIRELAY_LAST_USED` → `<temp>/last-used`
+   - `AIRELAY_PIDS` → `<temp>/pids.json`
 3. **Cleans up automatically**: Removes temp directory after tests
 
 ### Helper Functions
@@ -99,12 +99,12 @@ const configPath = path.join(testDir, 'config.yaml');
 
 beforeAll(() => {
   fs.mkdirSync(testDir, { recursive: true });
-  process.env.AIUSE_CONFIG = configPath;
+  process.env.AIRELAY_CONFIG = configPath;
 });
 
 afterAll(() => {
   fs.rmSync(testDir, { recursive: true });
-  delete process.env.AIUSE_CONFIG; // ❌ Might not restore original!
+  delete process.env.AIRELAY_CONFIG; // ❌ Might not restore original!
 });
 ```
 
@@ -120,7 +120,7 @@ beforeAll(() => {
 
 ## Benefits
 
-1. **No config overwrites** - Real `~/.aiswitch` is never touched
+1. **No config overwrites** - Real `~/.airelay` is never touched
 2. **Less boilerplate** - One line instead of 20+ lines of setup
 3. **Automatic cleanup** - Temp files removed even if tests crash
 4. **Consistent isolation** - All AIUSE\_\* vars are isolated
@@ -128,7 +128,7 @@ beforeAll(() => {
 
 ## Rules
 
-1. **NEVER** access `~/.aiswitch` directly in tests
+1. **NEVER** access `~/.airelay` directly in tests
 2. **ALWAYS** use `testEnv.configPath` (or other paths)
 3. **ALWAYS** use `useTestEnv()` in new test files
 4. **NEVER** assume a specific config exists - create it explicitly
@@ -190,8 +190,8 @@ describe('CustomTest', () => {
 If a test is still touching your real config:
 
 1. Check that `useTestEnv()` is called at the top of the describe block
-2. Verify no hardcoded `~/.aiswitch` paths in the test
-3. Check that all `execSync` calls pass `env: { ...process.env, AIUSE_CONFIG: testEnv.configPath }`
+2. Verify no hardcoded `~/.airelay` paths in the test
+3. Check that all `execSync` calls pass `env: { ...process.env, AIRELAY_CONFIG: testEnv.configPath }`
 4. Look for missing `useTestEnv()` in nested describe blocks
 
 ## Implementation Details

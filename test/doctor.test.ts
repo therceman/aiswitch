@@ -4,7 +4,7 @@ import path from 'path';
 import os from 'os';
 
 describe('doctor', () => {
-  const testDir = path.join(os.tmpdir(), 'aiswitch-doctor-test-' + Date.now());
+  const testDir = path.join(os.tmpdir(), 'airelay-doctor-test-' + Date.now());
   const testConfigPath = path.join(testDir, 'config.yaml');
 
   beforeAll(() => {
@@ -18,12 +18,12 @@ describe('doctor', () => {
   it('returns error when config missing', () => {
     const nonExistentPath = path.join(
       os.tmpdir(),
-      'nonexistent-aiswitch-config-' + Date.now(),
+      'nonexistent-airelay-config-' + Date.now(),
       'config.yaml'
     );
-    process.env.AIUSE_CONFIG = nonExistentPath;
+    process.env.AIRELAY_CONFIG = nonExistentPath;
     const result = doctorCommand();
-    delete process.env.AIUSE_CONFIG;
+    delete process.env.AIRELAY_CONFIG;
     expect(result.ok).toBe(false);
     expect(result.errors[0]).toContain('Config file not found');
   });
@@ -36,9 +36,9 @@ profiles:
   test:
     executable: nonexistent`
     );
-    process.env.AIUSE_CONFIG = testConfigPath;
+    process.env.AIRELAY_CONFIG = testConfigPath;
     const result = doctorCommand();
-    delete process.env.AIUSE_CONFIG;
+    delete process.env.AIRELAY_CONFIG;
     expect(result.ok).toBe(false);
     expect(result.errors[0]).toContain('not found in PATH');
   });
@@ -51,9 +51,9 @@ profiles:
   test:
     executable: nonexistent`
     );
-    process.env.AIUSE_CONFIG = testConfigPath;
+    process.env.AIRELAY_CONFIG = testConfigPath;
     const result = doctorCommand('test');
-    delete process.env.AIUSE_CONFIG;
+    delete process.env.AIRELAY_CONFIG;
     expect(result.ok).toBe(false);
   });
 });

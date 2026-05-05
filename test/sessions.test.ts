@@ -10,24 +10,21 @@ import path from 'path';
 import os from 'os';
 
 describe('sessions', () => {
-  const testDir = path.join(
-    os.tmpdir(),
-    'aiswitch-sessions-test-' + process.pid + '-' + Date.now()
-  );
+  const testDir = path.join(os.tmpdir(), 'airelay-sessions-test-' + process.pid + '-' + Date.now());
   const testSessionsPath = path.join(testDir, 'sessions.json');
-  const originalEnv = process.env.AIUSE_SESSIONS;
+  const originalEnv = process.env.AIRELAY_SESSIONS;
 
   beforeAll(() => {
     fs.mkdirSync(testDir, { recursive: true });
-    process.env.AIUSE_SESSIONS = testSessionsPath;
+    process.env.AIRELAY_SESSIONS = testSessionsPath;
   });
 
   afterAll(() => {
     fs.rmSync(testDir, { recursive: true });
     if (originalEnv) {
-      process.env.AIUSE_SESSIONS = originalEnv;
+      process.env.AIRELAY_SESSIONS = originalEnv;
     } else {
-      delete process.env.AIUSE_SESSIONS;
+      delete process.env.AIRELAY_SESSIONS;
     }
   });
 

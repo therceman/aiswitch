@@ -4,7 +4,7 @@ import path from 'path';
 import os from 'os';
 
 describe('whichCommand', () => {
-  const testDir = path.join(os.tmpdir(), 'aiswitch-which-test-' + Date.now());
+  const testDir = path.join(os.tmpdir(), 'airelay-which-test-' + Date.now());
   const testConfigPath = path.join(testDir, 'config.yaml');
 
   beforeAll(() => {
@@ -16,11 +16,11 @@ describe('whichCommand', () => {
   });
 
   beforeEach(() => {
-    delete process.env.AIUSE_CONFIG;
+    delete process.env.AIRELAY_CONFIG;
   });
 
   afterEach(() => {
-    delete process.env.AIUSE_CONFIG;
+    delete process.env.AIRELAY_CONFIG;
   });
 
   it('throws error with helpful message when profile not found', () => {
@@ -31,7 +31,7 @@ profiles:
   existing-profile:
     executable: opencode`
     );
-    process.env.AIUSE_CONFIG = testConfigPath;
+    process.env.AIRELAY_CONFIG = testConfigPath;
 
     expect(() => whichCommand('nonexistent')).toThrow('Profile not found: nonexistent');
     expect(() => whichCommand('nonexistent')).toThrow('Available profiles:');
@@ -51,7 +51,7 @@ profiles:
     env:
       TEST_VAR: test-value`
     );
-    process.env.AIUSE_CONFIG = testConfigPath;
+    process.env.AIRELAY_CONFIG = testConfigPath;
 
     const logs: string[] = [];
     const originalLog = console.log;
@@ -81,7 +81,7 @@ profiles:
     env:
       OPENCODE_API_KEY: ${longApiKey}`
     );
-    process.env.AIUSE_CONFIG = testConfigPath;
+    process.env.AIRELAY_CONFIG = testConfigPath;
 
     const logs: string[] = [];
     const originalLog = console.log;
@@ -105,7 +105,7 @@ profiles:
   test:
     executable: echo`
     );
-    process.env.AIUSE_CONFIG = testConfigPath;
+    process.env.AIRELAY_CONFIG = testConfigPath;
 
     const logs: string[] = [];
     const originalLog = console.log;

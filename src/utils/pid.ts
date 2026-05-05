@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { migrateLegacyHomeDirIfNeeded } from '../config/migrate';
 
 interface PIDEntry {
   pid: number;
@@ -17,7 +18,10 @@ interface PIDData {
 }
 
 function getPIDPath(): string {
-  return process.env.AIUSE_PIDS || path.join(os.homedir(), '.aiswitch', 'pids.json');
+  if (!process.env.AIRELAY_PIDS) {
+    migrateLegacyHomeDirIfNeeded();
+  }
+  return process.env.AIRELAY_PIDS || path.join(os.homedir(), '.airelay', 'pids.json');
 }
 
 function loadPIDs(): PIDData {
@@ -74,7 +78,7 @@ export function getOrphanedPIDs(): PIDEntry[] {
   const orphaned: PIDEntry[] = [];
 
   for (const entry of Object.values(pids)) {
-    // Check if parent process (aiswitch) is still running
+    // Check if parent process (airelay) is still running
     try {
       process.kill(entry.ppid, 0);
       // Parent is still alive, not orphaned

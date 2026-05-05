@@ -71,7 +71,7 @@ function parseArgs(argv: string[]): ParseResult {
     if (command === '--version' || command === '-v') {
       const pkgPath = path.join(__dirname, '..', 'package.json');
       const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
-      console.log(`aiswitch v${pkg.version}`);
+      console.log(`airelay v${pkg.version}`);
       process.exit(0);
     }
 
@@ -158,11 +158,11 @@ function parseArgs(argv: string[]): ParseResult {
 
 function showHelp(): void {
   console.log(`
-aiswitch - Cross-platform CLI for profile-isolated opencode/codex
+airelay - Cross-platform CLI for profile-isolated opencode/codex
 
 Usage:
-  aiswitch <command> [options]
-  aiswitch <profile> [args...]
+  airelay <command> [options]
+  airelay <profile> [args...]
 
 Commands:
   init                  Initialize config with auto-detected runtimes
@@ -182,16 +182,16 @@ Commands:
   help                  Show this help message
 
 Examples:
-  aiswitch init
-  aiswitch new
-  aiswitch start opencode
-  aiswitch resume myprofile_abc123
-  aiswitch create myprofile -e opencode
-  aiswitch opencode --help
-  aiswitch myprofile -m fast
-  aiswitch run myprofile --verbose
-  aiswitch ps
-  aiswitch cleanup
+  airelay init
+  airelay new
+  airelay start opencode
+  airelay resume myprofile_abc123
+  airelay create myprofile -e opencode
+  airelay opencode --help
+  airelay myprofile -m fast
+  airelay run myprofile --verbose
+  airelay ps
+  airelay cleanup
 
 Create options:
   -e, --executable <name>  Executable name (opencode or codex)
@@ -229,7 +229,7 @@ async function runCli(): Promise<void> {
       case 'resume':
         if (!profile) {
           console.error('Error: Profile or session key required');
-          console.error('Usage: aiswitch resume <profile|session-key>');
+          console.error('Usage: airelay resume <profile|session-key>');
           process.exit(1);
         }
         await resumeCommand(profile);
@@ -238,7 +238,7 @@ async function runCli(): Promise<void> {
       case 'start':
         if (!profile) {
           console.error('Error: Profile name required');
-          console.error('Usage: aiswitch start <profile>');
+          console.error('Usage: airelay start <profile>');
           process.exit(1);
         }
         await startCommand(profile, extraArgs);
@@ -256,7 +256,7 @@ async function runCli(): Promise<void> {
       case 'which':
         if (!profile) {
           console.error('Error: Profile name required');
-          console.error('Usage: aiswitch which <profile>');
+          console.error('Usage: airelay which <profile>');
           process.exit(1);
         }
         whichCommand(profile);
@@ -269,7 +269,7 @@ async function runCli(): Promise<void> {
       case 'run':
         if (!profile) {
           console.error('Error: Profile name required');
-          console.error('Usage: aiswitch run <profile>');
+          console.error('Usage: airelay run <profile>');
           process.exit(1);
         }
         {

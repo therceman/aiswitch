@@ -3,9 +3,13 @@ import path from 'path';
 import YAML from 'yaml';
 import { Config, ConfigSchema } from './schema';
 import { DEFAULT_CONFIG_FILE } from './defaults';
+import { migrateLegacyHomeDirIfNeeded } from './migrate';
 
 export function getConfigPath(): string {
-  return process.env.AIUSE_CONFIG || DEFAULT_CONFIG_FILE;
+  if (!process.env.AIRELAY_CONFIG) {
+    migrateLegacyHomeDirIfNeeded();
+  }
+  return process.env.AIRELAY_CONFIG || DEFAULT_CONFIG_FILE;
 }
 
 export function loadConfig(configPath?: string): Config {

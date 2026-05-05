@@ -23,16 +23,16 @@ export function setupIsolatedHarnessHome(
   }
 
   // Determine profile directory
-  // Respect AIUSE_CONFIG env var for test isolation
-  const aiswitchDir = process.env.AIUSE_CONFIG
-    ? path.dirname(process.env.AIUSE_CONFIG)
-    : path.join(os.homedir(), '.aiswitch');
+  // Respect AIRELAY_CONFIG env var for test isolation
+  const airelayDir = process.env.AIRELAY_CONFIG
+    ? path.dirname(process.env.AIRELAY_CONFIG)
+    : path.join(os.homedir(), '.airelay');
 
-  // When using AIUSE_CONFIG, the dirname IS the aiswitch folder
-  // When using default, we need to use .aiswitch subfolder
-  const profileDir = process.env.AIUSE_CONFIG
-    ? path.join(aiswitchDir, `${harnessName}-${profileName}`)
-    : path.join(aiswitchDir, `${harnessName}-${profileName}`);
+  // When using AIRELAY_CONFIG, the dirname IS the airelay folder
+  // When using default, we need to use .airelay subfolder
+  const profileDir = process.env.AIRELAY_CONFIG
+    ? path.join(airelayDir, `${harnessName}-${profileName}`)
+    : path.join(airelayDir, `${harnessName}-${profileName}`);
 
   // Determine base directory (shared data source)
   if (!baseDir) {
@@ -160,12 +160,12 @@ export function removeIsolatedHarnessHome(harnessName: string, profileDir: strin
     return false;
   }
 
-  // Ensure it's in .aiswitch directory (or test directory with AIUSE_CONFIG)
-  const aiswitchDir = process.env.AIUSE_CONFIG
-    ? path.dirname(process.env.AIUSE_CONFIG)
-    : path.join(os.homedir(), '.aiswitch');
-  if (!profileDir.startsWith(aiswitchDir)) {
-    console.error(`Error: Profile directory must be in ${aiswitchDir}: ${profileDir}`);
+  // Ensure it's in .airelay directory (or test directory with AIRELAY_CONFIG)
+  const airelayDir = process.env.AIRELAY_CONFIG
+    ? path.dirname(process.env.AIRELAY_CONFIG)
+    : path.join(os.homedir(), '.airelay');
+  if (!profileDir.startsWith(airelayDir)) {
+    console.error(`Error: Profile directory must be in ${airelayDir}: ${profileDir}`);
     return false;
   }
 

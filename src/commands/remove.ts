@@ -15,7 +15,7 @@ export async function removeCommand(profileName?: string): Promise<void> {
         const profile = p as { executable: string; env?: { CODEX_HOME?: string } };
         if (profile.executable !== 'codex') return false;
         const codexHome = profile.env?.CODEX_HOME;
-        return codexHome && codexHome.includes('.aiswitch/codex-');
+        return codexHome && codexHome.includes('.airelay/codex-');
       })
       .map(([name, p]) => {
         const profile = p as { env?: { CODEX_HOME?: string } };
@@ -27,7 +27,7 @@ export async function removeCommand(profileName?: string): Promise<void> {
 
     if (isolatedProfiles.length === 0) {
       console.log('No isolated Codex profiles found.');
-      console.log('Isolated profiles are those with CODEX_HOME in ~/.aiswitch/codex-<name>');
+      console.log('Isolated profiles are those with CODEX_HOME in ~/.airelay/codex-<name>');
       return;
     }
 
@@ -56,11 +56,11 @@ export async function removeCommand(profileName?: string): Promise<void> {
   }
 
   const codexHome = profile.env?.CODEX_HOME;
-  if (!codexHome || !codexHome.includes('.aiswitch/codex-')) {
+  if (!codexHome || !codexHome.includes('.airelay/codex-')) {
     console.error(`Profile '${profileName}' is not an isolated Codex profile.`);
     console.error(`CODEX_HOME: ${codexHome || 'not set'}`);
     console.error(
-      '\nOnly isolated profiles (with CODEX_HOME in ~/.aiswitch/codex-<name>) can be removed.'
+      '\nOnly isolated profiles (with CODEX_HOME in ~/.airelay/codex-<name>) can be removed.'
     );
     console.error('The default codex profile cannot be removed.');
     return;

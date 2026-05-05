@@ -4,7 +4,7 @@ import path from 'path';
 import os from 'os';
 
 describe('runCommand', () => {
-  const testDir = path.join(os.tmpdir(), 'aiswitch-run-test-' + Date.now());
+  const testDir = path.join(os.tmpdir(), 'airelay-run-test-' + Date.now());
   const testConfigPath = path.join(testDir, 'config.yaml');
 
   const originalLog = console.log;
@@ -20,11 +20,11 @@ describe('runCommand', () => {
   });
 
   beforeEach(() => {
-    delete process.env.AIUSE_CONFIG;
+    delete process.env.AIRELAY_CONFIG;
   });
 
   afterEach(() => {
-    delete process.env.AIUSE_CONFIG;
+    delete process.env.AIRELAY_CONFIG;
   });
 
   it('throws error with helpful message when profile not found', async () => {
@@ -35,7 +35,7 @@ profiles:
   existing-profile:
     executable: opencode`
     );
-    process.env.AIUSE_CONFIG = testConfigPath;
+    process.env.AIRELAY_CONFIG = testConfigPath;
 
     await expect(runCommand('nonexistent', [])).rejects.toThrow('Profile not found: nonexistent');
     await expect(runCommand('nonexistent', [])).rejects.toThrow('Available profiles:');
@@ -50,7 +50,7 @@ profiles:
   test:
     executable: nonexistent-executable`
     );
-    process.env.AIUSE_CONFIG = testConfigPath;
+    process.env.AIRELAY_CONFIG = testConfigPath;
 
     await expect(runCommand('test', [])).rejects.toThrow(
       'Executable not found in PATH: nonexistent-executable'
@@ -68,7 +68,7 @@ profiles:
       - -e
       - process.exit(0)`
     );
-    process.env.AIUSE_CONFIG = testConfigPath;
+    process.env.AIRELAY_CONFIG = testConfigPath;
 
     const exitCode = await runCommand('test', []);
     expect(exitCode).toBe(0);
@@ -85,7 +85,7 @@ profiles:
       - -e
       - process.exit(0)`
     );
-    process.env.AIUSE_CONFIG = testConfigPath;
+    process.env.AIRELAY_CONFIG = testConfigPath;
 
     const exitCode = await runCommand('test', []);
     expect(exitCode).toBe(0);
@@ -107,7 +107,7 @@ profiles:
     createDirs:
       - ${dirPath}`
     );
-    process.env.AIUSE_CONFIG = testConfigPath;
+    process.env.AIRELAY_CONFIG = testConfigPath;
 
     expect(fs.existsSync(dirPath)).toBe(false);
     await runCommand('test', []);
@@ -132,7 +132,7 @@ profiles:
     env:
       XDG_CONFIG_HOME: ${envPath}`
     );
-    process.env.AIUSE_CONFIG = testConfigPath;
+    process.env.AIRELAY_CONFIG = testConfigPath;
 
     expect(fs.existsSync(envPath)).toBe(false);
     await runCommand('test', []);

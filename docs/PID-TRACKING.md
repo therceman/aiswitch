@@ -2,7 +2,7 @@
 
 ## Problem
 
-When running diagnostic commands like `aiswitch opencode --version` or `aiswitch opencode models`, orphaned processes were left running after completion, consuming ~1 GB of RAM each.
+When running diagnostic commands like `airelay opencode --version` or `airelay opencode models`, orphaned processes were left running after completion, consuming ~1 GB of RAM each.
 
 **Root causes:**
 1. Child processes not properly detached
@@ -13,7 +13,7 @@ When running diagnostic commands like `aiswitch opencode --version` or `aiswitch
 
 ### 1. PID Tracking (`src/utils/pid.ts`)
 
-All spawned harness processes are now tracked in `~/.aiswitch/pids.json`:
+All spawned harness processes are now tracked in `~/.airelay/pids.json`:
 
 ```json
 {
@@ -32,7 +32,7 @@ All spawned harness processes are now tracked in `~/.aiswitch/pids.json`:
 **Features:**
 - Auto-cleanup on module load (removes dead processes)
 - Register/unregister PIDs on spawn/exit
-- Detect orphaned processes (parent aiswitch died)
+- Detect orphaned processes (parent airelay died)
 
 ### 2. Fixed Spawn Logic (`src/runtime/spawn.ts`)
 
@@ -43,7 +43,7 @@ All spawned harness processes are now tracked in `~/.aiswitch/pids.json`:
 
 ### 3. Cleanup Commands
 
-**`aiswitch ps`** - List all tracked processes
+**`airelay ps`** - List all tracked processes
 ```
 Tracked processes:
 PID	PPID	Command	Profile	CWD
@@ -51,7 +51,7 @@ PID	PPID	Command	Profile	CWD
 77837	77824	opencode	opencode	/home/user/project
 ```
 
-**`aiswitch cleanup`** - Kill orphaned processes
+**`airelay cleanup`** - Kill orphaned processes
 ```
 Killed orphaned process 13047 (opencode)
 Killed orphaned process 18907 (opencode)
@@ -62,12 +62,12 @@ Cleaned up 2 orphaned processes.
 
 ### Check for zombie processes
 ```bash
-aiswitch ps
+airelay ps
 ```
 
 ### Clean up orphaned processes
 ```bash
-aiswitch cleanup
+airelay cleanup
 ```
 
 ### Manual cleanup (if needed)
@@ -96,23 +96,23 @@ pkill -f "opencode.*models"
 
 - Module load (removes dead PIDs from tracking file)
 - Process exit (unregisters PID)
-- Manual `aiswitch cleanup` command
+- Manual `airelay cleanup` command
 
 ### File Location
 
-- Default: `~/.aiswitch/pids.json`
-- Override: `AIUSE_PIDS` environment variable
+- Default: `~/.airelay/pids.json`
+- Override: `AIRELAY_PIDS` environment variable
 
 ## Benefits
 
 1. **Prevents memory leaks** - No more zombie processes consuming GBs of RAM
-2. **Easy debugging** - See all active aiswitch-spawned processes
+2. **Easy debugging** - See all active airelay-spawned processes
 3. **Automatic cleanup** - Dead processes removed from tracking
 4. **Manual control** - Kill orphans on demand
 
 ## Future Enhancements
 
-- [ ] Auto-cleanup on aiswitch startup
+- [ ] Auto-cleanup on airelay startup
 - [ ] Timeout-based cleanup (kill processes running > N hours)
 - [ ] Resource monitoring (alert on high memory usage)
 - [ ] Process groups (kill all processes for a session)

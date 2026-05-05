@@ -4,6 +4,7 @@ import os from 'os';
 import crypto from 'crypto';
 import Enquirer from 'enquirer';
 import { loadConfig } from '../config/load';
+import { migrateLegacyHomeDirIfNeeded } from '../config/migrate';
 import { runCommand } from './run';
 import {
   getSessions,
@@ -15,7 +16,10 @@ import {
 import { createCommandInteractive } from './create-interactive';
 
 function getLastUsedDirPath(): string {
-  return process.env.AIUSE_LAST_USED || path.join(os.homedir(), '.aiswitch', 'last-used');
+  if (!process.env.AIRELAY_LAST_USED) {
+    migrateLegacyHomeDirIfNeeded();
+  }
+  return process.env.AIRELAY_LAST_USED || path.join(os.homedir(), '.airelay', 'last-used');
 }
 
 function getCwdHash(): string {

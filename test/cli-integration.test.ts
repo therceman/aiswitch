@@ -17,7 +17,7 @@ describe('CLI Integration', () => {
     it('shows help text', () => {
       const output = execSync(`node ${CLI_PATH} help`, { encoding: 'utf8' });
 
-      expect(output).toContain('aiswitch - Cross-platform CLI');
+      expect(output).toContain('airelay - Cross-platform CLI');
       expect(output).toContain('Usage:');
       expect(output).toContain('Commands:');
       expect(output).toContain('init');
@@ -34,8 +34,8 @@ describe('CLI Integration', () => {
       const output = execSync(`node ${CLI_PATH} help`, { encoding: 'utf8' });
 
       expect(output).toContain('Examples:');
-      expect(output).toContain('aiswitch init');
-      expect(output).toContain('aiswitch create');
+      expect(output).toContain('airelay init');
+      expect(output).toContain('airelay create');
     });
 
     it('shows help with create options', () => {
@@ -82,13 +82,13 @@ describe('CLI Integration', () => {
 
       expect(result.status).toBe(1);
       expect(result.stderr).toContain('Profile name required');
-      expect(result.stderr).toContain('Usage: aiswitch which <profile>');
+      expect(result.stderr).toContain('Usage: airelay which <profile>');
     });
 
     it('shows error when profile not found', () => {
       const result = spawnSync('node', [CLI_PATH, 'which', 'nonexistentprofile'], {
         encoding: 'utf8',
-        env: { ...process.env, AIUSE_CONFIG: testConfigPath },
+        env: { ...process.env, AIRELAY_CONFIG: testConfigPath },
       });
 
       expect(result.status).toBe(1);
@@ -110,7 +110,7 @@ describe('CLI Integration', () => {
       const output = execSync(`node ${CLI_PATH} init`, {
         encoding: 'utf8',
         stdio: 'pipe',
-        env: { ...process.env, AIUSE_CONFIG: testConfigPath },
+        env: { ...process.env, AIRELAY_CONFIG: testConfigPath },
       });
       expect(output).toBeDefined();
     });
@@ -119,7 +119,7 @@ describe('CLI Integration', () => {
       const output = execSync(`node ${CLI_PATH} init --force`, {
         encoding: 'utf8',
         stdio: 'pipe',
-        env: { ...process.env, AIUSE_CONFIG: testConfigPath },
+        env: { ...process.env, AIRELAY_CONFIG: testConfigPath },
       });
       expect(output).toBeDefined();
     });
@@ -128,7 +128,7 @@ describe('CLI Integration', () => {
       const output = execSync(`node ${CLI_PATH} init -f`, {
         encoding: 'utf8',
         stdio: 'pipe',
-        env: { ...process.env, AIUSE_CONFIG: testConfigPath },
+        env: { ...process.env, AIRELAY_CONFIG: testConfigPath },
       });
       expect(output).toBeDefined();
     });
@@ -152,13 +152,13 @@ describe('CLI Integration', () => {
 
       expect(result.status).toBe(1);
       expect(result.stderr).toContain('Profile name required');
-      expect(result.stderr).toContain('Usage: aiswitch run <profile>');
+      expect(result.stderr).toContain('Usage: airelay run <profile>');
     });
 
     it('shows error when profile not found', () => {
       const result = spawnSync('node', [CLI_PATH, 'run', 'nonexistentprofile'], {
         encoding: 'utf8',
-        env: { ...process.env, AIUSE_CONFIG: testConfigPath },
+        env: { ...process.env, AIRELAY_CONFIG: testConfigPath },
       });
 
       expect(result.status).toBe(1);

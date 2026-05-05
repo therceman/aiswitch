@@ -19,7 +19,7 @@ export function isolateCommand(profileName?: string): void {
     for (const name of codexProfiles) {
       const profile = config.profiles[name] as { env?: { CODEX_HOME?: string } };
       const codexHome = profile.env?.CODEX_HOME;
-      const isIsolated = codexHome && codexHome.includes('.aiswitch/codex-');
+      const isIsolated = codexHome && codexHome.includes('.airelay/codex-');
       console.log(`  ${name}${isIsolated ? ' ✓ (already isolated)' : ' (shared)'}`);
     }
     return;

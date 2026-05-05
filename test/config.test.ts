@@ -4,7 +4,7 @@ import os from 'os';
 import { loadConfig, getConfigDir } from '../src/config/load';
 
 describe('loadConfig', () => {
-  const testDir = path.join(os.tmpdir(), 'aiswitch-test-' + Date.now());
+  const testDir = path.join(os.tmpdir(), 'airelay-test-' + Date.now());
   const testConfigPath = path.join(testDir, 'config.yaml');
 
   beforeAll(() => {
@@ -43,7 +43,7 @@ profiles:
     expect(config.profiles['test-profile']?.executable).toBe('opencode');
   });
 
-  it('supports AIUSE_CONFIG env override', () => {
+  it('supports AIRELAY_CONFIG env override', () => {
     const customPath = path.join(testDir, 'custom.yaml');
     fs.writeFileSync(
       customPath,
@@ -52,10 +52,10 @@ profiles:
   custom:
     executable: codex`
     );
-    process.env.AIUSE_CONFIG = customPath;
+    process.env.AIRELAY_CONFIG = customPath;
     const config = loadConfig();
     expect(config.profiles['custom']).toBeDefined();
-    delete process.env.AIUSE_CONFIG;
+    delete process.env.AIRELAY_CONFIG;
   });
 });
 

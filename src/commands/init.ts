@@ -43,7 +43,7 @@ function detectProfiles(): Record<string, unknown> {
     profiles['codex'] = {
       executable: 'codex',
       env: {
-        CODEX_HOME: path.join(os.homedir(), '.aiswitch', 'codex'),
+        CODEX_HOME: path.join(os.homedir(), '.airelay', 'codex'),
       },
     };
   }

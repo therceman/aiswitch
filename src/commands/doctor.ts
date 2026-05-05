@@ -19,7 +19,7 @@ export function doctorCommand(profileName?: string): DoctorResult {
     const msg = (e as Error).message;
     if (msg.includes('Config file not found')) {
       errors.push(
-        `Config file not found: ${getConfigPath()}\nRun 'aiswitch init' to create a config.`
+        `Config file not found: ${getConfigPath()}\nRun 'airelay init' to create a config.`
       );
     } else {
       errors.push(`Config error: ${msg}`);
@@ -29,7 +29,7 @@ export function doctorCommand(profileName?: string): DoctorResult {
 
   const configPath = getConfigPath();
   if (!fs.existsSync(configPath)) {
-    errors.push(`Config file not found: ${configPath}\nRun 'aiswitch init' to create a config.`);
+    errors.push(`Config file not found: ${configPath}\nRun 'airelay init' to create a config.`);
     return { ok: false, errors };
   }
 

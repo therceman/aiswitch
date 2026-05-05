@@ -5,25 +5,22 @@ import os from 'os';
 import crypto from 'crypto';
 
 describe('last-used tracking', () => {
-  const testDir = path.join(
-    os.tmpdir(),
-    'aiswitch-lastused-test-' + process.pid + '-' + Date.now()
-  );
+  const testDir = path.join(os.tmpdir(), 'airelay-lastused-test-' + process.pid + '-' + Date.now());
   const testLastUsedPath = path.join(testDir, 'last-used');
-  const originalEnv = process.env.AIUSE_LAST_USED;
+  const originalEnv = process.env.AIRELAY_LAST_USED;
   const originalCwd = process.cwd();
 
   beforeAll(() => {
     fs.mkdirSync(testDir, { recursive: true });
-    process.env.AIUSE_LAST_USED = testLastUsedPath;
+    process.env.AIRELAY_LAST_USED = testLastUsedPath;
   });
 
   afterAll(() => {
     fs.rmSync(testDir, { recursive: true });
     if (originalEnv) {
-      process.env.AIUSE_LAST_USED = originalEnv;
+      process.env.AIRELAY_LAST_USED = originalEnv;
     } else {
-      delete process.env.AIUSE_LAST_USED;
+      delete process.env.AIRELAY_LAST_USED;
     }
   });
 
@@ -55,8 +52,8 @@ describe('last-used tracking', () => {
   it('creates directory if missing', () => {
     const nestedDir = path.join(testDir, 'nested-dir-' + Date.now());
     const nestedPath = path.join(nestedDir, 'last-used');
-    const savedEnv = process.env.AIUSE_LAST_USED;
-    process.env.AIUSE_LAST_USED = nestedPath;
+    const savedEnv = process.env.AIRELAY_LAST_USED;
+    process.env.AIRELAY_LAST_USED = nestedPath;
 
     setLastUsedProfile('test-profile');
 
@@ -64,7 +61,7 @@ describe('last-used tracking', () => {
     const nestedFile = path.join(nestedPath, `${cwdHash}.json`);
     expect(fs.existsSync(nestedFile)).toBe(true);
 
-    process.env.AIUSE_LAST_USED = savedEnv;
+    process.env.AIRELAY_LAST_USED = savedEnv;
     fs.rmSync(nestedDir, { recursive: true });
   });
 });

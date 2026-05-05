@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-The aiswitch CLI tool manages profile-isolated sessions for AI coding assistants (opencode/codex). Users need to:
+The airelay CLI tool manages profile-isolated sessions for AI coding assistants (opencode/codex). Users need to:
 
 - Resume previous sessions across different working directories
 - Reference sessions with memorable identifiers
@@ -46,10 +46,10 @@ Sessions can be resumed by:
 
 ### Commands
 
-- `aiswitch` (no args) → Interactive TUI with Resume/Start/Create options
-- `aiswitch resume <profile|session-key>` → Resume existing session
-- `aiswitch start <profile> [args...]` → Start new session with optional args
-- `aiswitch new` → Create new profile (interactive)
+- `airelay` (no args) → Interactive TUI with Resume/Start/Create options
+- `airelay resume <profile|session-key>` → Resume existing session
+- `airelay start <profile> [args...]` → Start new session with optional args
+- `airelay new` → Create new profile (interactive)
 
 ### TUI Behavior
 
@@ -66,7 +66,7 @@ The interactive TUI:
 
 Last-used profile is tracked **per working directory**, not globally:
 
-- Storage: `~/.aiswitch/last-used/<cwd-hash>.json`
+- Storage: `~/.airelay/last-used/<cwd-hash>.json`
 - Allows different "last used" profiles in different project directories
 
 ## Consequences
@@ -94,7 +94,7 @@ Last-used profile is tracked **per working directory**, not globally:
 
 ### Session Storage
 
-Location: `~/.aiswitch/sessions.json`
+Location: `~/.airelay/sessions.json`
 
 ```json
 {

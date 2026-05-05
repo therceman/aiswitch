@@ -1,4 +1,4 @@
-# DOMAIN.md — aiswitch Domain Model
+# DOMAIN.md — airelay Domain Model
 
 ## Core Concepts
 
@@ -18,8 +18,8 @@ A named configuration for running an AI coding assistant (harness).
 
 **Lifecycle:**
 
-- Created via `aiswitch create <name>` or `aiswitch new` (interactive)
-- Stored in `~/.aiswitch/config.yaml`
+- Created via `airelay create <name>` or `airelay new` (interactive)
+- Stored in `~/.airelay/config.yaml`
 - Can be default (opencode/codex) or custom
 
 ### Session
@@ -39,7 +39,7 @@ A specific instance of a harness run with a unique identifier.
 
 - Created when harness starts with `-s <id>` or generates new ID
 - Saved after harness exits (manual entry of session ID)
-- Stored in `~/.aiswitch/sessions.json`
+- Stored in `~/.airelay/sessions.json`
 - Limited to 50 per profile (oldest pruned)
 
 ### Harness
@@ -75,7 +75,7 @@ A user-friendly identifier for referencing sessions.
 
 ### Interactive (TUI)
 
-**`aiswitch`** (no arguments)
+**`airelay`** (no arguments)
 
 Main menu with three options:
 
@@ -96,51 +96,51 @@ After harness exits:
 
 ### CLI Commands
 
-**`aiswitch resume <profile|session-key>`**
+**`airelay resume <profile|session-key>`**
 
 - Resume an existing session
 - Currently treats argument as session ID
 - Future: support session key lookup
 
-**`aiswitch start <profile> [args...]`**
+**`airelay start <profile> [args...]`**
 
 - Start a new session with optional arguments
 - No TUI, direct execution
-- Example: `aiswitch start opencode -m fast`
+- Example: `airelay start opencode -m fast`
 
-**`aiswitch new`**
+**`airelay new`**
 
 - Create a new profile (interactive)
-- Alias for `aiswitch create` without arguments
+- Alias for `airelay create` without arguments
 
-**`aiswitch create <name> [options]`**
+**`airelay create <name> [options]`**
 
 - Create a new profile
 - Options: `-e <executable>`, `-k <api-key>`, `-d <config-dir>`
 
-**`aiswitch run <profile> [args...]`**
+**`airelay run <profile> [args...]`**
 
 - Run a profile with optional arguments
 - Default command (can omit `run`)
 
-**`aiswitch select`**
+**`airelay select`**
 
 - Explicit invocation of TUI
-- Same as `aiswitch` with no args
+- Same as `airelay` with no args
 
-**`aiswitch list`**
+**`airelay list`**
 
 - List all configured profiles
 
-**`aiswitch which <profile>`**
+**`airelay which <profile>`**
 
 - Show profile details and resolved paths
 
-**`aiswitch doctor [profile]`**
+**`airelay doctor [profile]`**
 
 - Run diagnostics
 
-**`aiswitch init [--force]`**
+**`airelay init [--force]`**
 
 - Initialize config with auto-detected runtimes
 
@@ -148,7 +148,7 @@ After harness exits:
 
 ### Config File
 
-**Location:** `~/.aiswitch/config.yaml` (or `AIUSE_CONFIG` env var)
+**Location:** `~/.airelay/config.yaml` (or `AIRELAY_CONFIG` env var)
 
 **Structure:**
 
@@ -164,7 +164,7 @@ profiles:
 
 ### Session History
 
-**Location:** `~/.aiswitch/sessions.json` (or `AIUSE_SESSIONS` env var)
+**Location:** `~/.airelay/sessions.json` (or `AIRELAY_SESSIONS` env var)
 
 **Structure:**
 
@@ -185,7 +185,7 @@ profiles:
 
 ### Last-Used Profile (Per-Directory)
 
-**Location:** `~/.aiswitch/last-used/<cwd-hash>.json` (or `AIUSE_LAST_USED` env var)
+**Location:** `~/.airelay/last-used/<cwd-hash>.json` (or `AIRELAY_LAST_USED` env var)
 
 **Structure:**
 
@@ -207,10 +207,10 @@ profiles:
 
 | Variable          | Purpose              | Default                     |
 | ----------------- | -------------------- | --------------------------- |
-| `AIUSE_CONFIG`    | Config file path     | `~/.aiswitch/config.yaml`   |
-| `AIUSE_SESSIONS`  | Session history path | `~/.aiswitch/sessions.json` |
-| `AIUSE_LAST_USED` | Last-used directory  | `~/.aiswitch/last-used`     |
-| `AIUSE_PIDS`      | PID tracking file    | `~/.aiswitch/pids.json`     |
+| `AIRELAY_CONFIG`    | Config file path     | `~/.airelay/config.yaml`   |
+| `AIRELAY_SESSIONS`  | Session history path | `~/.airelay/sessions.json` |
+| `AIRELAY_LAST_USED` | Last-used directory  | `~/.airelay/last-used`     |
+| `AIRELAY_PIDS`      | PID tracking file    | `~/.airelay/pids.json`     |
 
 ## User Workflows
 
@@ -218,33 +218,33 @@ profiles:
 
 ```bash
 # See session list, pick one
-aiswitch resume myprofile
+airelay resume myprofile
 
 # Or directly by session key (future)
-aiswitch resume opencode_XjhS
+airelay resume opencode_XjhS
 ```
 
 ### Start New Session
 
 ```bash
 # Via TUI
-aiswitch
+airelay
 → Start a new profile session
 → Select profile
 → Confirm
 
 # Via CLI
-aiswitch start opencode
+airelay start opencode
 ```
 
 ### Create Profile
 
 ```bash
 # Interactive
-aiswitch new
+airelay new
 
 # Or
-aiswitch create myprofile -e opencode
+airelay create myprofile -e opencode
 ```
 
 ### Session Management
@@ -261,17 +261,17 @@ After harness exits:
 
 ```bash
 # List tracked processes
-aiswitch ps
+airelay ps
 
-# Kill orphaned processes (parent aiswitch died)
-aiswitch cleanup
+# Kill orphaned processes (parent airelay died)
+airelay cleanup
 ```
 
 **PID Tracking:**
 
-- All harness processes spawned by aiswitch are tracked in `~/.aiswitch/pids.json`
+- All harness processes spawned by airelay are tracked in `~/.airelay/pids.json`
 - Tracking includes: PID, parent PID, command, args, cwd, start time, profile
-- Orphaned processes (where parent aiswitch died) can be detected and cleaned up
+- Orphaned processes (where parent airelay died) can be detected and cleaned up
 - PID entries are automatically removed when process exits cleanly
 - Dead PIDs are cleaned up on module load
 
