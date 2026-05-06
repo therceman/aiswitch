@@ -15,6 +15,8 @@ import { getAirelayVersion, CONTROLLER_PROTOCOL_VERSION } from '../utils/version
 
 const VIEWPORT_ROWS = 30;
 const VIEWPORT_COLS = 120;
+const SNAPSHOT_INTERVAL = 1000;
+const MAX_SNAPSHOT_LINES = 120;
 
 export type IpcHandler = (request: IpcRequest) => Promise<unknown> | unknown;
 
@@ -31,6 +33,10 @@ export class SessionController {
   private readonly protocolVersion: number;
   /** Headless xterm terminal — maintains true visible screen state */
   private readonly terminal: Terminal;
+  /** Rolling window of recently-visible viewport lines (snapshot history) */
+  private snapshotWindow: string[] = [];
+  private snapshotLineSet: Set<string> = new Set();
+  private snapshotTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(sessionKey: string) {
     this.sessionKey = sessionKey;
@@ -61,10 +67,7 @@ export class SessionController {
    * for true viewport tracking and to the historical ring buffer.
    */
   feedOutput(chunk: string): void {
-    // Feed into xterm for proper screen state tracking
     this.terminal.write(chunk);
-
-    // Also feed into historical ring buffer
     const lines = chunk.split('\n');
     for (const raw of lines) {
       const trimmed = raw.trim();
@@ -77,11 +80,25 @@ export class SessionController {
     }
   }
 
+  /** Capture a snapshot of current viewport lines into the rolling window. */
+  takeSnapshot(): void {
+    const current = this.getLiveViewport();
+    for (const line of current) {
+      if (!this.snapshotLineSet.has(line)) {
+        this.snapshotLineSet.add(line);
+        this.snapshotWindow.push(line);
+      }
+    }
+    while (this.snapshotWindow.length > MAX_SNAPSHOT_LINES) {
+      const removed = this.snapshotWindow.shift();
+      if (removed) this.snapshotLineSet.delete(removed);
+    }
+  }
+
   /** Read current visible viewport lines from the xterm terminal buffer. */
-  getViewportSnapshot(): string[] {
+  private getLiveViewport(): string[] {
     const buffer = this.terminal.buffer.active;
     const rows: string[] = [];
-    // baseY is the scroll offset; visible rows start at baseY
     for (let y = buffer.baseY; y < buffer.baseY + this.terminal.rows; y++) {
       const line = buffer.getLine(y);
       if (line) {
@@ -92,6 +109,21 @@ export class SessionController {
       }
     }
     return rows;
+  }
+
+  /** Return rolling snapshot window (which includes recent historical viewport + current). */
+  getViewportSnapshot(): string[] {
+    const current = this.getLiveViewport();
+    // Merge: snapshot window first (historical), then current viewport lines not in snapshot
+    const result = [...this.snapshotWindow];
+    const seen = new Set(this.snapshotWindow);
+    for (const line of current) {
+      if (!seen.has(line)) {
+        result.push(line);
+        seen.add(line);
+      }
+    }
+    return result;
   }
 
   onRequest(handler: IpcHandler): void {
@@ -107,6 +139,11 @@ export class SessionController {
     if (fs.existsSync(this.socketPath)) {
       fs.unlinkSync(this.socketPath);
     }
+
+    // Start periodic snapshot timer
+    this.snapshotTimer = setInterval(() => {
+      this.takeSnapshot();
+    }, SNAPSHOT_INTERVAL);
 
     return new Promise((resolve, reject) => {
       this.server = net.createServer((socket) => {
@@ -178,6 +215,10 @@ export class SessionController {
   }
 
   async stop(): Promise<void> {
+    if (this.snapshotTimer) {
+      clearInterval(this.snapshotTimer);
+      this.snapshotTimer = null;
+    }
     return new Promise((resolve) => {
       if (this.server) {
         this.server.close(() => {

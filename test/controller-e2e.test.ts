@@ -265,4 +265,52 @@ describe('controller E2E: real IPC socket flow', () => {
     expect(lines).not.toContain('line 21');
     expect(lines).toContain('line 49');
   });
+
+  it('snapshot window retains recently-visible term after it is replaced', async () => {
+    const controller = new SessionController('vp_snap_retain');
+
+    // Show a term briefly
+    controller.feedOutput('pong\n');
+    await controller.flushViewport();
+    controller.takeSnapshot();
+
+    // Replace with different content
+    controller.feedOutput('new content\n');
+    await controller.flushViewport();
+
+    // The snapshot window should still contain 'pong' from the earlier snapshot
+    const windowed = controller.getViewportSnapshot();
+    expect(windowed).toContain('pong');
+    expect(windowed).toContain('new content');
+  });
+
+  it('snapshot window does not retain term that never appeared', async () => {
+    const controller = new SessionController('vp_snap_no_match');
+
+    controller.feedOutput('visible line\n');
+    await controller.flushViewport();
+    controller.takeSnapshot();
+
+    const windowed = controller.getViewportSnapshot();
+    expect(windowed).not.toContain('ghost_output');
+  });
+
+  it('snapshot window retention cap works', async () => {
+    const controller = new SessionController('vp_snap_cap');
+
+    // Feed 150 unique lines, snapshotted one by one
+    for (let i = 0; i < 150; i++) {
+      controller.feedOutput(`unique_line_${i}\n`);
+      await controller.flushViewport();
+      controller.takeSnapshot();
+    }
+
+    const windowed = controller.getViewportSnapshot();
+    expect(windowed.length).toBeLessThanOrEqual(120);
+    // Oldest entries should have been evicted
+    const oldEntries = windowed.filter(
+      (l) => l.startsWith('unique_line_') && parseInt(l.split('_')[2], 10) < 30
+    );
+    expect(oldEntries.length).toBe(0);
+  });
 });
