@@ -10,6 +10,7 @@ import {
   readLines,
 } from './protocol';
 import { getIpcEndpointPath } from '../utils/ipc-path';
+import { getAirelayVersion, CONTROLLER_PROTOCOL_VERSION } from '../utils/version';
 
 export type IpcHandler = (request: IpcRequest) => Promise<unknown> | unknown;
 
@@ -17,13 +18,37 @@ export class SessionController {
   private server: net.Server | null = null;
   private socketPath: string;
   private handler: IpcHandler | null = null;
+  private outputBuf: string[] = [];
+  private readonly MAX_OUTPUT_LINES = 100;
+  private readonly sessionKey: string;
+  private readonly startedAt: number;
+  private readonly airelayVersion: string;
+  private readonly protocolVersion: number;
 
   constructor(sessionKey: string) {
+    this.sessionKey = sessionKey;
     this.socketPath = getIpcEndpointPath(sessionKey);
+    this.startedAt = Date.now();
+    this.airelayVersion = getAirelayVersion();
+    this.protocolVersion = CONTROLLER_PROTOCOL_VERSION;
   }
 
   get endpointPath(): string {
     return this.socketPath;
+  }
+
+  /** Feed an output chunk into the ring buffer (split into lines). */
+  feedOutput(chunk: string): void {
+    const lines = chunk.split('\n');
+    for (const raw of lines) {
+      const trimmed = raw.trim();
+      if (trimmed) {
+        this.outputBuf.push(trimmed);
+      }
+    }
+    while (this.outputBuf.length > this.MAX_OUTPUT_LINES) {
+      this.outputBuf.shift();
+    }
   }
 
   onRequest(handler: IpcHandler): void {
@@ -72,6 +97,16 @@ export class SessionController {
 
       if (request.method === 'ping') {
         response = createSuccessResponse(request.id, { pong: true });
+      } else if (request.method === 'session.info') {
+        response = createSuccessResponse(request.id, {
+          sessionKey: this.sessionKey,
+          active: !!this.handler,
+          airelayVersion: this.airelayVersion,
+          controllerProtocolVersion: this.protocolVersion,
+          startedAt: this.startedAt,
+        });
+      } else if (request.method === 'session.output') {
+        response = createSuccessResponse(request.id, { lines: this.outputBuf });
       } else if (this.handler) {
         const data = await this.handler(request);
         response = createSuccessResponse(request.id, data);

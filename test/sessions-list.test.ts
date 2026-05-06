@@ -1,4 +1,8 @@
-import { sessionsListCommand, sessionsListJson } from '../src/commands/sessions-list';
+import {
+  sessionsListCommand,
+  sessionsListJson,
+  setCurrentCwd,
+} from '../src/commands/sessions-list';
 import { addSession } from '../src/commands/sessions';
 import fs from 'fs';
 import path from 'path';
@@ -46,8 +50,8 @@ describe('sessionsListCommand', () => {
   });
 
   it('lists all sessions in human-readable format', async () => {
-    addSession('testprof', 'ses_abc', 'My Session', '/home/user/proj', 'testprof_key1');
-    addSession('otherprof', 'ses_def', undefined, undefined, 'otherprof_key2');
+    addSession('testprof', 'ses_abc', '/home/user/proj', 'testprof_key1');
+    addSession('otherprof', 'ses_def', undefined, 'otherprof_key2');
 
     await sessionsListCommand();
 
@@ -57,7 +61,7 @@ describe('sessionsListCommand', () => {
   });
 
   it('outputs JSON when --json flag is set', async () => {
-    addSession('testprof', 'ses_json_1', undefined, '/tmp/work', 'json_key1');
+    addSession('testprof', 'ses_json_1', '/tmp/work', 'json_key1');
 
     await sessionsListCommand({ json: true });
 
@@ -72,25 +76,25 @@ describe('sessionsListCommand', () => {
 });
 
 describe('sessionsListJson', () => {
-  it('returns empty array when no sessions', () => {
-    const result = sessionsListJson();
+  it('returns empty array when no sessions', async () => {
+    const result = await sessionsListJson();
     expect(result).toEqual([]);
   });
 
-  it('returns all sessions as flattened array', () => {
-    addSession('prof_a', 'ses_first', undefined, '/tmp/a', 'key_a');
-    addSession('prof_b', 'ses_second', undefined, '/tmp/b', 'key_b');
+  it('returns all sessions as flattened array', async () => {
+    addSession('prof_a', 'ses_first', '/tmp/a', 'key_a');
+    addSession('prof_b', 'ses_second', '/tmp/b', 'key_b');
 
-    const result = sessionsListJson();
+    const result = await sessionsListJson();
     expect(result.length).toBe(2);
     expect(result.map((r) => r.sessionId)).toContain('ses_first');
     expect(result.map((r) => r.sessionId)).toContain('ses_second');
   });
 
-  it('includes mandatory fields', () => {
-    addSession('myprof', 'ses_fields', undefined, '/home/user/work', 'field_key');
+  it('includes mandatory fields', async () => {
+    addSession('myprof', 'ses_fields', '/home/user/work', 'field_key');
 
-    const result = sessionsListJson();
+    const result = await sessionsListJson();
     expect(result[0]).toMatchObject({
       sessionId: 'ses_fields',
       profile: 'myprof',
@@ -98,18 +102,73 @@ describe('sessionsListJson', () => {
     });
   });
 
-  it('normalizes cwd with ~ for home directory paths', () => {
+  it('normalizes cwd with ~ for home directory paths', async () => {
     const home = os.homedir();
-    addSession('myprof', 'ses_home', undefined, `${home}/project/docs`, 'home_key');
+    addSession('myprof', 'ses_home', `${home}/project/docs`, 'home_key');
 
-    const result = sessionsListJson();
+    const result = await sessionsListJson();
     expect(result[0].cwd).toBe('~/project/docs');
   });
 
-  it('does not modify non-home paths in cwd', () => {
-    addSession('myprof', 'ses_tmp', undefined, '/tmp/work', 'tmp_key');
+  it('does not modify non-home paths in cwd', async () => {
+    addSession('myprof', 'ses_tmp', '/tmp/work', 'tmp_key');
 
-    const result = sessionsListJson();
+    const result = await sessionsListJson();
     expect(result[0].cwd).toBe('/tmp/work');
+  });
+
+  it('includes pid when present', async () => {
+    addSession('myprof', 'ses_pid', undefined, 'pid_key', undefined, process.pid);
+
+    const result = await sessionsListJson();
+    expect(result.find((r) => r.sessionId === 'ses_pid')?.pid).toBe(process.pid);
+  });
+
+  it('pid is undefined when not set', async () => {
+    addSession('myprof', 'ses_nopid', undefined, 'nopid_key');
+
+    const result = await sessionsListJson();
+    expect(result.find((r) => r.sessionId === 'ses_nopid')?.pid).toBeUndefined();
+  });
+
+  describe('--cwd filter', () => {
+    const origDir = process.cwd();
+
+    beforeEach(() => {
+      setCurrentCwd('/home/user/project');
+    });
+
+    afterAll(() => {
+      setCurrentCwd(origDir);
+    });
+
+    it('filters sessions to matching cwd', async () => {
+      addSession('prof_a', 'ses_match', '/home/user/project', 'key_match');
+      addSession('prof_b', 'ses_other', '/other/path', 'key_other');
+
+      await sessionsListCommand({ cwd: true });
+
+      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('ses_match'));
+      expect(console.log).not.toHaveBeenCalledWith(expect.stringContaining('ses_other'));
+    });
+
+    it('shows no sessions when nothing matches cwd', async () => {
+      addSession('prof_a', 'ses_only', '/somewhere/else', 'key_only');
+
+      await sessionsListCommand({ cwd: true });
+
+      expect(console.log).toHaveBeenCalledWith('No sessions found.');
+    });
+
+    it('works with --json flag', async () => {
+      addSession('prof_a', 'ses_json', '/home/user/project', 'key_json');
+
+      await sessionsListCommand({ cwd: true, json: true });
+
+      const output = (console.log as jest.Mock).mock.calls[0][0];
+      const parsed = JSON.parse(output);
+      expect(parsed.length).toBe(1);
+      expect(parsed[0].sessionId).toBe('ses_json');
+    });
   });
 });

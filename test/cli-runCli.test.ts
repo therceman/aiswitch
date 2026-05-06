@@ -219,6 +219,8 @@ describe('runCli', () => {
       enter: true,
       onlyEnter: false,
       onlySequence: '\\x1b[106;4u',
+      noSender: false,
+      sender: undefined,
     });
     expect(process.exit).toHaveBeenCalledWith(0);
   });
@@ -232,6 +234,8 @@ describe('runCli', () => {
       enter: true,
       onlyEnter: true,
       onlySequence: undefined,
+      noSender: false,
+      sender: undefined,
     });
     expect(process.exit).toHaveBeenCalledWith(0);
   });
@@ -312,11 +316,77 @@ describe('parseArgs', () => {
       'select',
       'prompt',
       'sessions',
+      'session-status',
+      'session-find',
     ];
     commands.forEach((cmd) => {
       const result = parseArgs(['node', 'airelay', cmd]);
       expect(result.command).toBe(cmd);
     });
+  });
+
+  it('start --key after profile parses correctly', () => {
+    const result = parseArgs([
+      'node',
+      'airelay',
+      'start',
+      'opencode2',
+      '--key',
+      'worker_1',
+      '--',
+      '-s',
+      'ses_xxx',
+    ]);
+    expect(result.command).toBe('start');
+    expect(result.profile).toBe('opencode2');
+    expect(result.flags.key).toBe('worker_1');
+    expect(result.extraArgs).toEqual(['-s', 'ses_xxx']);
+  });
+
+  it('start --key before profile parses correctly', () => {
+    const result = parseArgs([
+      'node',
+      'airelay',
+      'start',
+      '--key',
+      'worker_1',
+      'opencode2',
+      '--',
+      '-s',
+      'ses_xxx',
+    ]);
+    expect(result.command).toBe('start');
+    expect(result.profile).toBe('opencode2');
+    expect(result.flags.key).toBe('worker_1');
+    expect(result.extraArgs).toEqual(['-s', 'ses_xxx']);
+  });
+
+  it('run does not intercept --key after profile (goes to extraArgs)', () => {
+    const result = parseArgs(['node', 'airelay', 'run', 'myprof', '--key', 'test', '--', 'arg1']);
+    expect(result.command).toBe('run');
+    expect(result.profile).toBe('myprof');
+    expect(result.flags.key).toBeUndefined();
+    expect(result.extraArgs).toEqual(['--key', 'test', 'arg1']);
+  });
+
+  it('start --key missing value before -- returns error flag', () => {
+    const result = parseArgs([
+      'node',
+      'airelay',
+      'start',
+      'opencode2',
+      '--key',
+      '--',
+      '-s',
+      'ses_xxx',
+    ]);
+    expect(result.flags._error).toBe('--key requires a value.');
+    expect(result.extraArgs).toEqual([]); // -- handler not reached
+  });
+
+  it('start --key at end of args returns error flag', () => {
+    const result = parseArgs(['node', 'airelay', 'start', 'opencode2', '--key']);
+    expect(result.flags._error).toBe('--key requires a value.');
   });
 });
 

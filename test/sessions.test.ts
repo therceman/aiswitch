@@ -1,10 +1,9 @@
 import {
   addSession,
   getSessions,
-  renameSession,
   deleteSession,
-  getSessionDisplayName,
   removeSessionByKey,
+  pruneStaleSessions,
 } from '../src/commands/sessions';
 import fs from 'fs';
 import path from 'path';
@@ -48,25 +47,6 @@ describe('sessions', () => {
     expect(sessions[0].profile).toBe('test-profile');
   });
 
-  it('adds a session with a name', () => {
-    addSession('test-profile', 'ses_123', 'My Session');
-    const sessions = getSessions('test-profile');
-    expect(sessions[0].name).toBe('My Session');
-  });
-
-  it('renames a session', () => {
-    addSession('test-profile', 'ses_123');
-    const result = renameSession('test-profile', 'ses_123', 'Renamed Session');
-    expect(result).toBe(true);
-    const sessions = getSessions('test-profile');
-    expect(sessions[0].name).toBe('Renamed Session');
-  });
-
-  it('returns false when renaming non-existent session', () => {
-    const result = renameSession('test-profile', 'nonexistent', 'Name');
-    expect(result).toBe(false);
-  });
-
   it('deletes a session', () => {
     addSession('test-profile', 'ses_123');
     addSession('test-profile', 'ses_456');
@@ -80,16 +60,6 @@ describe('sessions', () => {
   it('returns false when deleting non-existent session', () => {
     const result = deleteSession('test-profile', 'nonexistent');
     expect(result).toBe(false);
-  });
-
-  it('returns display name with custom name', () => {
-    const session = { id: 'ses_123', name: 'My Session', profile: 'test', lastUsed: Date.now() };
-    expect(getSessionDisplayName(session)).toBe('My Session');
-  });
-
-  it('returns truncated id when no name', () => {
-    const session = { id: 'ses_verylongid123', profile: 'test', lastUsed: Date.now() };
-    expect(getSessionDisplayName(session)).toBe('ses_very...');
   });
 
   it('sorts sessions by lastUsed', () => {
@@ -115,14 +85,7 @@ describe('sessions', () => {
   });
 
   it('persists controllerEndpoint when provided', () => {
-    addSession(
-      'test-profile',
-      'ses_ctrl_1',
-      undefined,
-      undefined,
-      'ctrl_key',
-      '/tmp/sockets/ctrl_key.sock'
-    );
+    addSession('test-profile', 'ses_ctrl_1', undefined, 'ctrl_key', '/tmp/sockets/ctrl_key.sock');
     const sessions = getSessions('test-profile');
     const entry = sessions.find((s) => s.id === 'ses_ctrl_1');
     expect(entry).toBeDefined();
@@ -130,7 +93,7 @@ describe('sessions', () => {
   });
 
   it('removeSessionByKey removes session by key', () => {
-    addSession('test-profile', 'ses_key_1', undefined, undefined, 'mykey');
+    addSession('test-profile', 'ses_key_1', undefined, 'mykey');
 
     const removed = removeSessionByKey('mykey');
     expect(removed).toBe(true);
@@ -144,19 +107,51 @@ describe('sessions', () => {
     expect(removed).toBe(false);
   });
 
+  it('pruneStaleSessions removes entries with dead PID and unreachable controller', async () => {
+    addSession('test-profile', 'ses_stale', undefined, 'stale_key', undefined, 999999999);
+    addSession('test-profile', 'ses_live', undefined, 'live_key', undefined, process.pid);
+
+    const pruned = await pruneStaleSessions();
+
+    expect(pruned).toBe(1);
+    const sessions = getSessions('test-profile');
+    expect(sessions.find((s) => s.id === 'ses_stale')).toBeUndefined();
+    expect(sessions.find((s) => s.id === 'ses_live')).toBeDefined();
+  });
+
+  it('pruneStaleSessions keeps entries without PID', async () => {
+    addSession('test-profile', 'ses_nopid', undefined, 'nopid_key');
+
+    const pruned = await pruneStaleSessions();
+
+    expect(pruned).toBe(0);
+    const sessions = getSessions('test-profile');
+    expect(sessions.find((s) => s.id === 'ses_nopid')).toBeDefined();
+  });
+
+  it('pruneStaleSessions removes stale pending_opencode2_60lc-style entry', async () => {
+    addSession(
+      'opencode2',
+      'pending_opencode2_60lc',
+      undefined,
+      'pending_opencode2_60lc',
+      undefined,
+      999999999
+    );
+
+    const pruned = await pruneStaleSessions();
+    expect(pruned).toBe(1);
+
+    const sessions = getSessions('opencode2');
+    expect(sessions.find((s) => s.id === 'pending_opencode2_60lc')).toBeUndefined();
+  });
+
   it('updates controllerEndpoint on existing session', () => {
-    addSession('test-profile', 'ses_ctrl_2', undefined, undefined, 'ctrl_key2');
+    addSession('test-profile', 'ses_ctrl_2', undefined, 'ctrl_key2');
     let sessions = getSessions('test-profile');
     expect(sessions.find((s) => s.id === 'ses_ctrl_2')!.controllerEndpoint).toBeUndefined();
 
-    addSession(
-      'test-profile',
-      'ses_ctrl_2',
-      undefined,
-      undefined,
-      'ctrl_key2',
-      '/new/endpoint.sock'
-    );
+    addSession('test-profile', 'ses_ctrl_2', undefined, 'ctrl_key2', '/new/endpoint.sock');
     sessions = getSessions('test-profile');
     expect(sessions.find((s) => s.id === 'ses_ctrl_2')!.controllerEndpoint).toBe(
       '/new/endpoint.sock'

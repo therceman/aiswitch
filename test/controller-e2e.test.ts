@@ -55,14 +55,7 @@ describe('controller E2E: real IPC socket flow', () => {
     await controller.start();
 
     // Pre-save session record so promptCommand can find it
-    addSession(
-      'e2e-profile',
-      'e2e_ses_id',
-      undefined,
-      undefined,
-      sessionKey,
-      controller.endpointPath
-    );
+    addSession('e2e-profile', 'e2e_ses_id', undefined, sessionKey, controller.endpointPath);
 
     // Verify session is findable
     const found = findSessionByKey(sessionKey);
@@ -96,14 +89,7 @@ describe('controller E2E: real IPC socket flow', () => {
     await controller.start();
 
     // Save session with explicit controllerEndpoint
-    addSession(
-      'e2e-profile',
-      'e2e_endpoint_ses',
-      undefined,
-      undefined,
-      sessionKey,
-      controller.endpointPath
-    );
+    addSession('e2e-profile', 'e2e_endpoint_ses', undefined, sessionKey, controller.endpointPath);
 
     const exitCode = await promptCommand(sessionKey, 'test endpoint', { enter: false });
 
@@ -121,14 +107,7 @@ describe('controller E2E: real IPC socket flow', () => {
     controller.onRequest(async () => ({ handled: false }));
     await controller.start();
 
-    addSession(
-      'e2e-profile',
-      'e2e_offline_ses',
-      undefined,
-      undefined,
-      sessionKey,
-      controller.endpointPath
-    );
+    addSession('e2e-profile', 'e2e_offline_ses', undefined, sessionKey, controller.endpointPath);
 
     // Stop controller before prompting
     await controller.stop();
@@ -156,7 +135,7 @@ describe('controller E2E: real IPC socket flow', () => {
     await controller.start();
 
     // Save session WITHOUT controllerEndpoint — prompt should derive path from sessionKey
-    addSession('e2e-profile', 'e2e_fallback_ses', undefined, undefined, sessionKey);
+    addSession('e2e-profile', 'e2e_fallback_ses', undefined, sessionKey);
 
     const exitCode = await promptCommand(sessionKey, 'fallback test');
 
@@ -197,14 +176,7 @@ describe('controller E2E: real IPC socket flow', () => {
 
     await controller.start();
 
-    addSession(
-      'e2e-profile',
-      'e2e_enter_ses',
-      undefined,
-      undefined,
-      sessionKey,
-      controller.endpointPath
-    );
+    addSession('e2e-profile', 'e2e_enter_ses', undefined, sessionKey, controller.endpointPath);
 
     const exitCode = await promptCommand(sessionKey, 'submit this', { enter: true });
 

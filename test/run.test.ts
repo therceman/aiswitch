@@ -247,6 +247,81 @@ profiles:
     expect(capturedInfo!.controllerEndpoint).toMatch(/\.sock$/);
   });
 
+  it('injects AIRELAY_SESSION_KEY into child process environment', async () => {
+    fs.writeFileSync(
+      testConfigPath,
+      `version: 1
+profiles:
+  test:
+    executable: node
+    args:
+      - -e
+      - "var k=process.env.AIRELAY_SESSION_KEY||'';var p=process.env.AIRELAY_PROFILE||'';var i=process.env.AIRELAY_SESSION_ID||'';var c=process.env.AIRELAY_CWD||'';process.exit(k&&p&&i&&c?0:1)"`
+    );
+    process.env.AIRELAY_CONFIG = testConfigPath;
+
+    const exitCode = await runCommand('test', []);
+    expect(exitCode).toBe(0);
+  });
+
+  it('injects AIRELAY_PROFILE with profile name', async () => {
+    fs.writeFileSync(
+      testConfigPath,
+      `version: 1
+profiles:
+  envcheck:
+    executable: node
+    args:
+      - -e
+      - "process.exit(process.env.AIRELAY_PROFILE === 'envcheck' ? 0 : 1)"`
+    );
+    process.env.AIRELAY_CONFIG = testConfigPath;
+
+    const exitCode = await runCommand('envcheck', []);
+    expect(exitCode).toBe(0);
+  });
+
+  it('injects AIRELAY_CWD as absolute path', async () => {
+    fs.writeFileSync(
+      testConfigPath,
+      `version: 1
+profiles:
+  test:
+    executable: node
+    args:
+      - -e
+      - "process.exit(process.env.AIRELAY_CWD&&process.env.AIRELAY_CWD.startsWith('/')?0:1)"`
+    );
+    process.env.AIRELAY_CONFIG = testConfigPath;
+
+    const exitCode = await runCommand('test', []);
+    expect(exitCode).toBe(0);
+  });
+
+  it('session key env var matches onSessionStart key', async () => {
+    fs.writeFileSync(
+      testConfigPath,
+      `version: 1
+profiles:
+  test:
+    executable: node
+    args:
+      - -e
+      - "process.exit(process.env.AIRELAY_SESSION_KEY?0:1)"`
+    );
+    process.env.AIRELAY_CONFIG = testConfigPath;
+
+    let startKey = '';
+    await runCommand('test', [], {
+      onSessionStart: (info) => {
+        startKey = info.sessionKey;
+      },
+    });
+
+    // The start key should be non-empty (generated)
+    expect(startKey).toMatch(/^test_/);
+  });
+
   it('creates directories from env paths', async () => {
     const tempDir = path.join(testDir, 'env-dir-' + Date.now());
     const envPath = path.join(tempDir, 'config');

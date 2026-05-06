@@ -52,6 +52,13 @@ export interface HarnessCapabilities {
    * Useful for TUIs that require a short settle time before submit key events.
    */
   submitDelayMs: number;
+
+  /**
+   * Hint string that indicates the harness is in a working/idle state,
+   * typically shown in the UI footer. Used by `session-status` to report
+   * whether the session appears responsive.
+   */
+  uiWorkingHint: string;
 }
 
 const HARNESS_CAPABILITIES: Record<HarnessType, HarnessCapabilities> = {
@@ -59,18 +66,19 @@ const HARNESS_CAPABILITIES: Record<HarnessType, HarnessCapabilities> = {
     submitMode: 'byte',
     submitValue: '\r',
     submitDelayMs: 0,
+    uiWorkingHint: 'esc interrupt',
   },
   codex: {
     submitMode: 'byte',
-    // Enter (\r) with TEXT_TO_SUBMIT_DELAY_MS delay works for Codex in practice.
-    // CSI-u sequences are not handled by Codex's terminal mode.
     submitValue: '\r',
     submitDelayMs: 0,
+    uiWorkingHint: 'esc to interrupt',
   },
   unknown: {
     submitMode: 'byte',
     submitValue: '\r',
     submitDelayMs: 0,
+    uiWorkingHint: '',
   },
 };
 
@@ -80,7 +88,12 @@ const HARNESS_CAPABILITIES: Record<HarnessType, HarnessCapabilities> = {
  */
 export function getHarnessCapabilities(harness: HarnessType): HarnessCapabilities {
   return (
-    HARNESS_CAPABILITIES[harness] || { submitMode: 'byte', submitValue: '\r', submitDelayMs: 0 }
+    HARNESS_CAPABILITIES[harness] || {
+      submitMode: 'byte',
+      submitValue: '\r',
+      submitDelayMs: 0,
+      uiWorkingHint: '',
+    }
   );
 }
 

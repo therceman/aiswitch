@@ -8,7 +8,7 @@ import {
   SessionInputParams,
 } from '../types/controller';
 
-const VALID_METHODS: IpcMethod[] = ['ping', 'session.info', 'session.input'];
+const VALID_METHODS: IpcMethod[] = ['ping', 'session.info', 'session.input', 'session.output'];
 
 export function parseRequest(raw: string): IpcRequest {
   let parsed: unknown;

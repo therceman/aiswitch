@@ -6,13 +6,7 @@ import Enquirer from 'enquirer';
 import { loadConfig } from '../config/load';
 import { migrateLegacyHomeDirIfNeeded } from '../config/migrate';
 import { runCommand } from './run';
-import {
-  getSessions,
-  getSessionDisplayName,
-  addSession,
-  renameSession,
-  deleteSession,
-} from './sessions';
+import { getSessions, addSession, deleteSession, getSessionsPath } from './sessions';
 import { createCommandInteractive } from './create-interactive';
 
 function getLastUsedDirPath(): string {
@@ -154,11 +148,10 @@ export async function selectCommand(): Promise<void> {
       const sessionChoices = [
         ...sessions.map((s) => {
           const cwdInfo = s.cwd ? ` ${s.cwd}` : '';
-          const nameInfo = s.name ? ` (${s.name})` : '';
           const keyInfo = s.sessionKey ? ` [${s.sessionKey}]` : '';
           return {
             name: s.id,
-            message: `${s.id}${keyInfo}${cwdInfo}${nameInfo}`,
+            message: `${s.id}${keyInfo}${cwdInfo}`,
           };
         }),
         { name: '__rename__', message: '[R] Rename a session' },
@@ -212,7 +205,7 @@ export async function selectCommand(): Promise<void> {
             message: 'Select session to rename',
             choices: sessions.map((s) => ({
               name: s.id,
-              message: getSessionDisplayName(s),
+              message: s.sessionKey || s.id,
             })),
           };
           const renameResult = (await enquirer.prompt(renamePrompt)) as { rename: string };
@@ -220,14 +213,21 @@ export async function selectCommand(): Promise<void> {
           const namePrompt = {
             type: 'input',
             name: 'name',
-            message: 'New name for session',
-            initial: sessions.find((s) => s.id === renameResult.rename)?.name || '',
+            message: 'New key for session',
+            initial: sessions.find((s) => s.id === renameResult.rename)?.sessionKey || '',
           };
           const nameResult = (await enquirer.prompt(namePrompt)) as { name: string };
 
           if (nameResult.name.trim()) {
-            renameSession(profileName, renameResult.rename, nameResult.name.trim());
-            console.log(`Renamed session to: ${nameResult.name.trim()}`);
+            const sessionsData = JSON.parse(fs.readFileSync(getSessionsPath(), 'utf-8'));
+            const entry = sessionsData[profileName]?.find(
+              (s: { id: string }) => s.id === renameResult.rename
+            );
+            if (entry) {
+              entry.sessionKey = nameResult.name.trim();
+              fs.writeFileSync(getSessionsPath(), JSON.stringify(sessionsData, null, 2));
+              console.log(`Session key updated to: ${nameResult.name.trim()}`);
+            }
           }
           continue;
         }
@@ -239,7 +239,7 @@ export async function selectCommand(): Promise<void> {
             message: 'Select session to delete',
             choices: sessions.map((s) => ({
               name: s.id,
-              message: getSessionDisplayName(s),
+              message: s.sessionKey || s.id,
             })),
           };
           const deleteResult = (await enquirer.prompt(deletePrompt)) as { delete: string };
@@ -247,7 +247,7 @@ export async function selectCommand(): Promise<void> {
           const confirmPrompt = {
             type: 'confirm',
             name: 'confirm',
-            message: `Delete session "${getSessionDisplayName(sessions.find((s) => s.id === deleteResult.delete)!)}"?`,
+            message: `Delete session "${sessions.find((s) => s.id === deleteResult.delete)?.sessionKey || deleteResult.delete}"?`,
             initial: false,
           };
           const confirmResult = (await enquirer.prompt(confirmPrompt)) as { confirm: boolean };
@@ -335,7 +335,6 @@ export async function selectCommand(): Promise<void> {
     addSession(
       profileName,
       sessionId,
-      undefined,
       currentCwd,
       keyResult.sessionKey.trim(),
       sessionStartInfo.controllerEndpoint || undefined

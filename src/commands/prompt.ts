@@ -81,6 +81,8 @@ export interface PromptOptions {
   enter?: boolean | string;
   onlyEnter?: boolean;
   onlySequence?: string;
+  noSender?: boolean;
+  sender?: string;
 }
 
 export async function promptCommand(
@@ -99,6 +101,15 @@ export async function promptCommand(
     console.error('       airelay prompt <session> --only-sequence <seq>');
     return 1;
   }
+
+  // Compute sender prefix
+  let sender: string | undefined;
+  if (options?.sender) {
+    sender = options.sender;
+  } else if (!options?.noSender) {
+    sender = process.env.AIRELAY_SESSION_KEY;
+  }
+  const finalText = sender && resolvedText ? `[from=${sender}] ${resolvedText}` : resolvedText;
 
   const found = findSessionByKey(sessionKeyOrId);
   if (!found) {
@@ -147,7 +158,7 @@ export async function promptCommand(
     const response = await sendIpcRequest(endpointPath, {
       id: 'prompt-1',
       method: 'session.input',
-      params: { text: resolvedText, enter: submitByte, submitDelayMs },
+      params: { text: finalText, enter: submitByte, submitDelayMs },
     });
 
     if (response.type === 'error' && response.error) {

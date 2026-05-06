@@ -5,6 +5,7 @@ export interface PtyOptions {
   args: string[];
   cwd?: string;
   env?: Record<string, string>;
+  onOutput?: (chunk: string) => void;
 }
 
 export interface PtyInstance {
@@ -27,9 +28,10 @@ export function createPty(options: PtyOptions): PtyInstance {
     env: { ...process.env, ...options.env } as { [key: string]: string },
   });
 
-  // Forward PTY output to parent's stdout
+  // Forward PTY output to parent's stdout and optional onOutput callback
   term.onData((data: string) => {
     process.stdout.write(data);
+    options.onOutput?.(data);
   });
 
   // Forward parent's stdin to PTY (raw mode for proper TTY handling)

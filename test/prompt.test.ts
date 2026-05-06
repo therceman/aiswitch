@@ -208,9 +208,80 @@ describe('promptCommand', () => {
     });
   });
 
+  describe('sender prefix', () => {
+    beforeEach(() => {
+      delete process.env.AIRELAY_SESSION_KEY;
+    });
+
+    it('prefixes text with @<sender>: from env var', async () => {
+      process.env.AIRELAY_SESSION_KEY = 'worker_1';
+      mockSessionFound();
+      const exitCodePromise = promptCommand('testprofile_1234', 'ping');
+
+      emitData({ id: 'prompt-1', type: 'success', data: {} });
+
+      await exitCodePromise;
+      const socket = mockSocketInstance;
+      const written = socket?.write.mock.calls[0][0];
+      expect(written).toContain('"text":"[from=worker_1] ping"');
+    });
+
+    it('--no-sender disables prefix even with env var', async () => {
+      process.env.AIRELAY_SESSION_KEY = 'worker_1';
+      mockSessionFound();
+      const exitCodePromise = promptCommand('testprofile_1234', 'ping', { noSender: true });
+
+      emitData({ id: 'prompt-1', type: 'success', data: {} });
+
+      await exitCodePromise;
+      const socket = mockSocketInstance;
+      const written = socket?.write.mock.calls[0][0];
+      expect(written).toContain('"text":"ping"');
+      expect(written).not.toContain('[from=');
+    });
+
+    it('--sender overrides env var', async () => {
+      process.env.AIRELAY_SESSION_KEY = 'worker_1';
+      mockSessionFound();
+      const exitCodePromise = promptCommand('testprofile_1234', 'ping', {
+        sender: 'custom_sender',
+      });
+
+      emitData({ id: 'prompt-1', type: 'success', data: {} });
+
+      await exitCodePromise;
+      const socket = mockSocketInstance;
+      const written = socket?.write.mock.calls[0][0];
+      expect(written).toContain('"text":"[from=custom_sender] ping"');
+    });
+
+    it('does not add prefix when no env var and no options', async () => {
+      mockSessionFound();
+      const exitCodePromise = promptCommand('testprofile_1234', 'ping');
+
+      emitData({ id: 'prompt-1', type: 'success', data: {} });
+
+      await exitCodePromise;
+      const socket = mockSocketInstance;
+      const written = socket?.write.mock.calls[0][0];
+      expect(written).toContain('"text":"ping"');
+    });
+
+    it('does not prefix text with --no-sender when no env var', async () => {
+      mockSessionFound();
+      const exitCodePromise = promptCommand('testprofile_1234', 'ping', { noSender: true });
+
+      emitData({ id: 'prompt-1', type: 'success', data: {} });
+
+      await exitCodePromise;
+      const socket = mockSocketInstance;
+      const written = socket?.write.mock.calls[0][0];
+      expect(written).toContain('"text":"ping"');
+    });
+  });
+
   describe('session key fallback', () => {
     it('uses sessionKey when available', async () => {
-      mockSessionFound();
       const exitCodePromise = promptCommand('testprofile_1234', 'hello');
 
       emitData({ id: 'prompt-1', type: 'success', data: {} });

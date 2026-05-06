@@ -1,7 +1,5 @@
 import os from 'os';
-import fs from 'fs';
-import net from 'net';
-import { loadSessions } from './sessions';
+import { loadSessions, pruneStaleSessions } from './sessions';
 
 function normalizeCwd(cwd?: string): string {
   if (!cwd) return '';
@@ -12,32 +10,6 @@ function normalizeCwd(cwd?: string): string {
   return cwd;
 }
 
-function isEndpointReachable(endpoint: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (process.platform === 'win32') {
-      // Named pipes: attempt brief connection
-      const socket = new net.Socket();
-      socket.setTimeout(500);
-      socket.on('connect', () => {
-        socket.destroy();
-        resolve(true);
-      });
-      socket.on('error', () => {
-        socket.destroy();
-        resolve(false);
-      });
-      socket.on('timeout', () => {
-        socket.destroy();
-        resolve(false);
-      });
-      socket.connect(endpoint);
-    } else {
-      // Unix socket: check file existence
-      resolve(fs.existsSync(endpoint));
-    }
-  });
-}
-
 export interface SessionRow {
   sessionId: string;
   profile: string;
@@ -45,10 +17,24 @@ export interface SessionRow {
   sessionKey?: string;
   controllerEndpoint?: string;
   lastUsed: number;
+  pid?: number;
   active?: boolean;
 }
 
-function flattenSessions(): SessionRow[] {
+/** Current working directory as an absolute path, for --cwd filtering */
+let _currentCwd = process.cwd();
+
+/**
+ * Override current cwd for testing. Returns the previous value.
+ */
+export function setCurrentCwd(cwd: string): string {
+  const prev = _currentCwd;
+  _currentCwd = cwd;
+  return prev;
+}
+
+async function flattenSessions(): Promise<SessionRow[]> {
+  await pruneStaleSessions();
   const data = loadSessions();
   const rows: SessionRow[] = [];
 
@@ -61,6 +47,7 @@ function flattenSessions(): SessionRow[] {
         sessionKey: entry.sessionKey,
         controllerEndpoint: entry.controllerEndpoint,
         lastUsed: entry.lastUsed,
+        pid: entry.pid,
       });
     }
   }
@@ -72,14 +59,20 @@ function flattenSessions(): SessionRow[] {
 export async function sessionsListCommand(flags?: {
   json?: boolean;
   active?: boolean;
+  cwd?: boolean;
 }): Promise<void> {
-  let rows = flattenSessions();
+  let rows = await flattenSessions();
+
+  if (flags?.cwd) {
+    rows = rows.filter((r) => r.cwd === normalizeCwd(_currentCwd));
+  }
 
   if (flags?.active) {
     const results = await Promise.all(
       rows.map(async (row) => {
         if (row.controllerEndpoint) {
-          const reachable = await isEndpointReachable(row.controllerEndpoint);
+          const { isControllerReachable } = await import('./sessions');
+          const reachable = await isControllerReachable(row.controllerEndpoint);
           return { ...row, active: reachable };
         }
         return { ...row, active: false };
@@ -100,16 +93,21 @@ export async function sessionsListCommand(flags?: {
 
   for (const row of rows) {
     const activeTag = row.active ? ' [active]' : '';
-    const keyInfo = row.sessionKey ? ` (key: ${row.sessionKey})` : '';
     const cwdInfo = row.cwd ? ` @ ${row.cwd}` : '';
+    // Show key only when it differs from session ID (avoids redundant display)
+    const keyInfo =
+      row.sessionKey && row.sessionKey !== row.sessionId ? ` (key: ${row.sessionKey})` : '';
     console.log(`${row.sessionId}${keyInfo}${cwdInfo}${activeTag}`);
     console.log(`  profile: ${row.profile}`);
+    if (row.pid !== undefined) {
+      console.log(`  pid: ${row.pid}`);
+    }
     if (row.lastUsed) {
       console.log(`  last used: ${new Date(row.lastUsed).toISOString()}`);
     }
   }
 }
 
-export function sessionsListJson(): SessionRow[] {
+export async function sessionsListJson(): Promise<SessionRow[]> {
   return flattenSessions();
 }

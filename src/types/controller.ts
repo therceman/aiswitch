@@ -1,4 +1,4 @@
-export type IpcMethod = 'ping' | 'session.info' | 'session.input';
+export type IpcMethod = 'ping' | 'session.info' | 'session.input' | 'session.output';
 
 export interface IpcRequest {
   id: string;
@@ -71,4 +71,7 @@ export interface PingData {
 export interface SessionInfoData {
   sessionKey: string;
   active: boolean;
+  airelayVersion: string;
+  controllerProtocolVersion: number;
+  startedAt: number;
 }

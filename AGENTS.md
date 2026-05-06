@@ -57,6 +57,10 @@ Env vars with path-like values (`HOME`, `XDG_*`, `*_HOME`, `*_CONFIG_DIR`) get `
 - **NEVER touch `~/.airelay` in tests** — always use `useTestEnv()` helper
 - TUI does NOT prompt for extra args (keep flow simple)
 - Session save is manual (prompt after harness exits)
+- Versioning policy:
+  - `npm run build` must NOT bump package version.
+  - Bump patch version only after a task is accepted and verified, before final commit/push.
+  - After a successful task (or required follow-up), commit and push are mandatory.
 
 ## Code Quality Rules
 

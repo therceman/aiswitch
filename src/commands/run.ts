@@ -5,7 +5,8 @@ import { buildEnv } from '../runtime/env';
 import { spawnAndWait, SpawnOptions } from '../runtime/spawn';
 import { SessionController } from '../controller';
 import { IpcError, IpcErrorCodes } from '../types/controller';
-import { addSession, deleteSession } from './sessions';
+import { addSession, deleteSession, updateSessionPid } from './sessions';
+import { getAirelayVersion, CONTROLLER_PROTOCOL_VERSION } from '../utils/version';
 import fs from 'fs';
 
 function generateSessionKey(profileName: string): string {
@@ -88,9 +89,6 @@ function setupController(
       }
       return { delivered: true, sessionKey };
     }
-    if (request.method === 'session.info') {
-      return { sessionKey, active: !!ptyWrite.current };
-    }
     return { handled: false };
   });
 
@@ -124,7 +122,25 @@ export async function runCommand(
     options.onSessionStart({ sessionKey, controllerEndpoint: controller.endpointPath });
   }
 
-  addSession(profileName, sessionKey, undefined, cwd, sessionKey, controller.endpointPath);
+  addSession(
+    profileName,
+    sessionKey,
+    cwd,
+    sessionKey,
+    controller.endpointPath,
+    undefined,
+    getAirelayVersion(),
+    CONTROLLER_PROTOCOL_VERSION,
+    Date.now()
+  );
+
+  // Inject session metadata into child process environment
+  env.AIRELAY_SESSION_KEY = sessionKey;
+  env.AIRELAY_PROFILE = profileName;
+  env.AIRELAY_SESSION_ID = sessionKey;
+  env.AIRELAY_CWD = cwd;
+  env.AIRELAY_VERSION = getAirelayVersion();
+  env.AIRELAY_CONTROLLER_PROTOCOL_VERSION = String(CONTROLLER_PROTOCOL_VERSION);
 
   const usePty = options?.usePty === true;
 
@@ -141,8 +157,15 @@ export async function runCommand(
   if (usePty) {
     spawnOpts.onPtyReady = (pty) => {
       ptyWriteRef.current = pty.write;
+      // Record runtime PID for liveness pruning
+      updateSessionPid(sessionKey, pty.pid);
     };
   }
+
+  // Feed PTY output to the controller's ring buffer for session-find / ui_hint
+  spawnOpts.onOutput = (chunk: string) => {
+    controller.feedOutput(chunk);
+  };
 
   try {
     const exitCode = await spawnAndWait(spawnOpts);

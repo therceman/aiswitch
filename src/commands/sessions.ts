@@ -1,3 +1,4 @@
+import net from 'net';
 import os from 'os';
 import path from 'path';
 import { createJsonStore } from '../utils/json-store';
@@ -10,6 +11,10 @@ export interface SessionEntry {
   cwd?: string;
   sessionKey?: string;
   controllerEndpoint?: string;
+  pid?: number;
+  airelayVersion?: string;
+  controllerProtocolVersion?: number;
+  startedAt?: number;
 }
 
 export interface SessionsData {
@@ -36,10 +41,13 @@ export function getSessionsPath(): string {
 export function addSession(
   profile: string,
   sessionId: string,
-  name?: string,
   cwd?: string,
   sessionKey?: string,
-  controllerEndpoint?: string
+  controllerEndpoint?: string,
+  pid?: number,
+  airelayVersion?: string,
+  controllerProtocolVersion?: number,
+  startedAt?: number
 ): void {
   const sessions = loadSessions();
   if (!sessions[profile]) {
@@ -49,9 +57,6 @@ export function addSession(
   const existingIndex = sessions[profile].findIndex((s) => s.id === sessionId);
   if (existingIndex !== -1) {
     sessions[profile][existingIndex].lastUsed = Date.now();
-    if (name) {
-      sessions[profile][existingIndex].name = name;
-    }
     if (cwd) {
       sessions[profile][existingIndex].cwd = cwd;
     }
@@ -61,15 +66,30 @@ export function addSession(
     if (controllerEndpoint) {
       sessions[profile][existingIndex].controllerEndpoint = controllerEndpoint;
     }
+    if (pid !== undefined) {
+      sessions[profile][existingIndex].pid = pid;
+    }
+    if (airelayVersion) {
+      sessions[profile][existingIndex].airelayVersion = airelayVersion;
+    }
+    if (controllerProtocolVersion !== undefined) {
+      sessions[profile][existingIndex].controllerProtocolVersion = controllerProtocolVersion;
+    }
+    if (startedAt !== undefined) {
+      sessions[profile][existingIndex].startedAt = startedAt;
+    }
   } else {
     sessions[profile].push({
       id: sessionId,
-      name,
       profile,
       lastUsed: Date.now(),
       cwd,
       sessionKey,
       controllerEndpoint,
+      pid,
+      airelayVersion,
+      controllerProtocolVersion,
+      startedAt,
     });
   }
 
@@ -81,22 +101,6 @@ export function addSession(
 export function getSessions(profile: string): SessionEntry[] {
   const sessions = loadSessions();
   return sessions[profile] || [];
-}
-
-export function renameSession(profile: string, sessionId: string, newName: string): boolean {
-  const sessions = loadSessions();
-  if (!sessions[profile]) {
-    return false;
-  }
-
-  const entry = sessions[profile].find((s) => s.id === sessionId);
-  if (!entry) {
-    return false;
-  }
-
-  entry.name = newName;
-  saveSessions(sessions);
-  return true;
 }
 
 export function deleteSession(profile: string, sessionId: string): boolean {
@@ -113,14 +117,6 @@ export function deleteSession(profile: string, sessionId: string): boolean {
     return true;
   }
   return false;
-}
-
-export function getSessionDisplayName(session: SessionEntry): string {
-  if (session.name) {
-    return session.name;
-  }
-  const truncatedId = session.id.length > 8 ? session.id.slice(0, 8) + '...' : session.id;
-  return truncatedId;
 }
 
 export function findSessionByKey(
@@ -156,6 +152,134 @@ export function updateSessionControllerEndpoint(keyOrId: string, endpoint: strin
   }
 
   return false;
+}
+
+export function updateSessionPid(keyOrId: string, pid: number): boolean {
+  const sessions = loadSessions();
+  for (const [, profileSessions] of Object.entries(sessions)) {
+    const entry = profileSessions.find((s) => s.sessionKey === keyOrId || s.id === keyOrId);
+    if (entry) {
+      entry.pid = pid;
+      saveSessions(sessions);
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Probe a controller endpoint with a real socket connect + IPC ping.
+ * Returns true if the controller responds, false otherwise.
+ */
+export function isControllerReachable(endpoint: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    let cleanedUp = false;
+
+    const cleanup = () => {
+      if (cleanedUp) return;
+      cleanedUp = true;
+      clearTimeout(timeout);
+      socket.destroy();
+    };
+
+    const timeout = setTimeout(() => {
+      cleanup();
+      resolve(false);
+    }, 1000);
+
+    socket.on('connect', () => {
+      socket.write(JSON.stringify({ id: 'prune-1', method: 'ping' }) + '\n');
+    });
+
+    let buffer = '';
+    socket.on('data', (data: Buffer) => {
+      buffer += data.toString();
+      const idx = buffer.indexOf('\n');
+      if (idx !== -1) {
+        cleanup();
+        try {
+          const parsed = JSON.parse(buffer.slice(0, idx));
+          if (parsed.id === 'prune-1' && parsed.type === 'success') {
+            resolve(true);
+          } else {
+            resolve(false);
+          }
+        } catch {
+          resolve(false);
+        }
+      }
+    });
+
+    socket.on('error', () => {
+      cleanup();
+      resolve(false);
+    });
+
+    socket.on('timeout', () => {
+      cleanup();
+      resolve(false);
+    });
+
+    if (process.platform === 'win32') {
+      socket.connect(endpoint);
+    } else {
+      socket.connect({ path: endpoint });
+    }
+  });
+}
+
+/**
+ * Prune stale sessions whose PID is dead AND controller endpoint is unreachable.
+ * Returns the number of pruned entries. Safe to call on every listing.
+ */
+export async function pruneStaleSessions(): Promise<number> {
+  const sessions = loadSessions();
+  let pruned = 0;
+
+  for (const [profile, entries] of Object.entries(sessions)) {
+    const alive: SessionEntry[] = [];
+    for (const entry of entries) {
+      const entryPid = entry.pid;
+      const hasPid = entryPid !== undefined && entryPid !== null;
+      let pidAlive = !hasPid;
+      if (hasPid) {
+        try {
+          process.kill(entryPid, 0);
+          pidAlive = true;
+        } catch {
+          pidAlive = false;
+        }
+      }
+
+      let stale = false;
+
+      if (!pidAlive && hasPid) {
+        if (entry.controllerEndpoint) {
+          try {
+            const reachable = await isControllerReachable(entry.controllerEndpoint);
+            stale = !reachable;
+          } catch {
+            stale = true;
+          }
+        } else {
+          stale = true;
+        }
+      }
+
+      if (stale) {
+        pruned++;
+        continue;
+      }
+      alive.push(entry);
+    }
+    sessions[profile] = alive;
+  }
+
+  if (pruned > 0) {
+    saveSessions(sessions);
+  }
+  return pruned;
 }
 
 export function removeSessionByKey(key: string): boolean {

@@ -12,6 +12,12 @@ export interface SpawnOptions {
   trackPID?: boolean;
   usePty?: boolean;
   onPtyReady?: (pty: { pid: number; write: (data: string) => void }) => void;
+
+  /**
+   * Called with output data from the child process (chunks of stdout).
+   * Used by SessionController to maintain a recent output buffer.
+   */
+  onOutput?: (chunk: string) => void;
 }
 
 function spawnChild(options: SpawnOptions) {
@@ -92,6 +98,7 @@ async function spawnAndWaitPty(options: SpawnOptions): Promise<number> {
     args: options.args || [],
     cwd: options.cwd,
     env: options.env,
+    onOutput: options.onOutput,
   });
 
   if (options.trackPID) {

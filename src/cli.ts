@@ -14,6 +14,8 @@ import { isolateCommand } from './commands/isolate';
 import { removeCommand } from './commands/remove';
 import { promptCommand } from './commands/prompt';
 import { sessionsListCommand } from './commands/sessions-list';
+import { sessionStatusCommand } from './commands/session-status';
+import { sessionFindCommand } from './commands/session-find';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -43,6 +45,8 @@ const KNOWN_COMMANDS = [
   'remove',
   'prompt',
   'sessions',
+  'session-status',
+  'session-find',
 ];
 const PROFILE_COMMANDS = ['run', 'which', 'doctor', 'start'];
 
@@ -95,11 +99,22 @@ function parseArgs(argv: string[]): ParseResult {
     const arg = args[i];
 
     if (arg === '--') {
-      extraArgs = args.slice(i + 1);
+      extraArgs.push(...args.slice(i + 1));
       break;
     }
 
     if (profileFound) {
+      // For start command, intercept known flags before they become harness args
+      if (command === 'start' && arg === '--key') {
+        if (i + 1 < args.length && !args[i + 1].startsWith('-')) {
+          flags.key = args[i + 1];
+          i += 2;
+        } else {
+          flags._error = '--key requires a value.';
+          break;
+        }
+        continue;
+      }
       extraArgs.push(arg);
       i++;
       continue;
@@ -165,7 +180,7 @@ Commands:
   create <name>         Create a new profile
   new                   Create a new profile (interactive)
   resume <key>          Resume a session by profile or session key
-  start <profile>       Start a new session with profile
+  start <profile>       Start a new session (--key <key>, -- <harness_args>)
   list                  List all profiles
   which <profile>       Show resolved runtime details
   doctor [profile]      Run diagnostics
@@ -177,17 +192,19 @@ Commands:
   remove [name]         Remove profile overlay (safe, keeps shared data)
   prompt <session>      Send input to an active session
   sessions              List saved sessions
+  session-status <key>  Show session health and UI status
+  session-find <key>    Search recent session output for pattern
   help                  Show this help message
 
 Examples:
   airelay init
-  airelay new
   airelay start opencode
   airelay start opencode resume ses_abc123
-  airelay start opencode -s ses_abc123
+  airelay start opencode2 --key worker_1 -- -s ses_xxx
   airelay resume myprofile_abc123
   airelay create myprofile -e opencode
-  airelay start myprofile -m fast
+  airelay opencode --help
+  airelay myprofile -m fast
   airelay run myprofile --verbose
   airelay ps
   airelay cleanup
@@ -198,6 +215,8 @@ Examples:
   airelay sessions
   airelay sessions --json
   airelay sessions --active
+  airelay sessions --cwd
+  airelay sessions --cwd --active --json
 
 Create options:
   -e, --executable <name>  Executable name (opencode or codex)
@@ -213,10 +232,16 @@ Prompt options:
   --only-enter             Send Enter key only (no text)
   --only-sequence <seq>    Send raw sequence only (no text)
   --sequence <seq>         Override submit sequence, e.g. $'\\x1b[106;4u'
+  --no-sender              Disable auto @-sender prefix
+  --sender <id>            Override sender identifier (default: $AIRELAY_SESSION_KEY)
+
+Start options:
+  --key <key>              Custom session key (overrides auto-generated key)
 
 Session options:
   --json                   Output in JSON format
   --active                 Show only currently active sessions
+  --cwd                    Show only sessions started in current directory
 `);
 }
 
@@ -255,10 +280,27 @@ async function runCli(): Promise<void> {
       case 'start':
         if (!profile) {
           console.error('Error: Profile name required');
-          console.error('Usage: airelay start <profile>');
+          console.error('Usage: airelay start <profile> [--key <key>] [-- <harness_args...>]');
           process.exit(1);
         }
-        await startCommand(profile, extraArgs);
+        if (flags._error) {
+          console.error(`Error: ${flags._error}`);
+          process.exit(1);
+        }
+        {
+          const sessionKey = flags.key as string | boolean | undefined;
+          if (sessionKey !== undefined) {
+            if (typeof sessionKey !== 'string' || sessionKey.trim().length === 0) {
+              console.error('Error: --key requires a value.');
+              process.exit(1);
+            }
+            if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(sessionKey)) {
+              console.error(`Error: Invalid key "${sessionKey}". Must start with a letter/digit and contain only letters, digits, -, _.`);
+              process.exit(1);
+            }
+          }
+          await startCommand(profile, extraArgs, { key: sessionKey });
+        }
         break;
 
       case 'list':
@@ -345,10 +387,25 @@ async function runCli(): Promise<void> {
 
           const noEnter = flags['no-enter'] === true;
           const enterValue = noEnter ? false : true;
+
+          const noSender = flags['no-sender'] === true;
+          const sender = flags['sender'] as string | undefined;
+
+          if (noSender && sender) {
+            console.error('Error: --no-sender and --sender cannot be combined.');
+            process.exit(1);
+          }
+          if (sender !== undefined && sender.trim().length === 0) {
+            console.error('Error: --sender cannot be empty.');
+            process.exit(1);
+          }
+
           const exitCode = await promptCommand(profile, text, {
             enter: enterValue,
             onlyEnter,
             onlySequence,
+            noSender,
+            sender,
           });
           process.exit(exitCode);
         }
@@ -357,8 +414,32 @@ async function runCli(): Promise<void> {
         await sessionsListCommand({
           json: flags.json === true,
           active: flags.active === true,
+          cwd: flags.cwd === true,
         });
         break;
+
+      case 'session-status':
+        if (!profile) {
+          console.error('Error: Session key or ID required');
+          console.error('Usage: airelay session-status <session>');
+          process.exit(1);
+        }
+        {
+          const exitCode = await sessionStatusCommand(profile, { json: flags.json === true });
+          process.exit(exitCode);
+        }
+
+      case 'session-find':
+        if (!profile) {
+          console.error('Error: Session key or ID required');
+          console.error('Usage: airelay session-find <session> <pattern>');
+          process.exit(1);
+        }
+        {
+          const pattern = args[0];
+          const exitCode = await sessionFindCommand(profile, pattern, { json: flags.json === true });
+          process.exit(exitCode);
+        }
 
       case 'select':
       default:
