@@ -1,6 +1,7 @@
 import { findSessionByKey } from './sessions';
 import { getIpcEndpointPath } from '../utils/ipc-path';
 import { fetchSessionViewport } from './session-viewport';
+import { preflightVersionCheck } from './session-ipc';
 
 interface FindResult {
   found: boolean;
@@ -28,7 +29,18 @@ export async function sessionFindCommand(
   const sessionKey = found.session.sessionKey || found.session.id;
   const endpointPath = found.session.controllerEndpoint || getIpcEndpointPath(sessionKey);
 
+  // Preflight version parity check (blocking — hard-stop on major mismatch)
+  const parity = await preflightVersionCheck(endpointPath);
+  if (parity.error) {
+    console.error(`Error: ${parity.error}`);
+    return 1;
+  }
+  for (const w of parity.warnings) {
+    console.warn(`Warning: ${w}`);
+  }
+
   const output = await fetchSessionViewport(endpointPath);
+
   const lower = pattern.toLowerCase();
   const matches = output.lines.filter((l) => l.toLowerCase().includes(lower));
 

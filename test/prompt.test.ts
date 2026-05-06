@@ -1,8 +1,9 @@
 import { EventEmitter } from 'events';
 import { promptCommand } from '../src/commands/prompt';
 
-// Capture the mock socket instance for each test
-let mockSocketInstance: MockSocket | null;
+// Capture the mock socket instances for each test
+let mockSocketInstances: MockSocket[] = [];
+let mockSocketInstance: MockSocket | null = null;
 
 class MockSocket extends EventEmitter {
   connect = jest.fn((_path: string, cb?: () => void) => {
@@ -11,13 +12,18 @@ class MockSocket extends EventEmitter {
     }
   });
   write = jest.fn();
-  destroy = jest.fn();
+  destroy = jest.fn(() => {
+    this.emit('close');
+  });
+  setTimeout = jest.fn();
 }
 
 jest.mock('net', () => ({
   Socket: jest.fn(() => {
-    mockSocketInstance = new MockSocket();
-    return mockSocketInstance;
+    const sock = new MockSocket();
+    mockSocketInstances.push(sock);
+    mockSocketInstance = sock;
+    return sock;
   }),
 }));
 
@@ -34,21 +40,30 @@ jest.mock('../src/config/load', () => ({
   })),
 }));
 
+jest.mock('../src/commands/session-ipc', () => ({
+  preflightVersionCheck: jest.fn().mockResolvedValue({ ok: true, warnings: [] }),
+}));
+
 import { findSessionByKey } from '../src/commands/sessions';
+import { preflightVersionCheck } from '../src/commands/session-ipc';
 
 const originalConsoleLog = console.log;
 const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
 
 beforeEach(() => {
   console.log = jest.fn();
   console.error = jest.fn();
+  console.warn = jest.fn();
   mockSocketInstance = null;
+  mockSocketInstances = [];
   jest.clearAllMocks();
 });
 
 afterEach(() => {
   console.log = originalConsoleLog;
   console.error = originalConsoleError;
+  console.warn = originalConsoleWarn;
 });
 
 function mockSessionFound(overrides: Record<string, unknown> = {}): void {
@@ -68,18 +83,23 @@ function mockSessionNotFound(): void {
   (findSessionByKey as jest.Mock).mockReturnValue(null);
 }
 
-function emitData(data: Record<string, unknown>): void {
-  if (!mockSocketInstance) {
-    throw new Error('No mock socket instance');
+async function emitData(data: Record<string, unknown>): Promise<void> {
+  // Wait for the main IPC request to create its socket
+  while (mockSocketInstances.length === 0) {
+    await new Promise((resolve) => setImmediate(resolve));
   }
-  mockSocketInstance.emit('data', Buffer.from(JSON.stringify(data) + '\n'));
+  const sock = mockSocketInstances[mockSocketInstances.length - 1];
+  if (!sock) throw new Error('No mock socket instance');
+  sock.emit('data', Buffer.from(JSON.stringify(data) + '\n'));
 }
 
-function emitError(err: Error & { code?: string }): void {
-  if (!mockSocketInstance) {
-    throw new Error('No mock socket instance');
+async function emitError(err: Error & { code?: string }): Promise<void> {
+  while (mockSocketInstances.length === 0) {
+    await new Promise((resolve) => setImmediate(resolve));
   }
-  mockSocketInstance.emit('error', err);
+  const sock = mockSocketInstances[mockSocketInstances.length - 1];
+  if (!sock) throw new Error('No mock socket instance');
+  sock.emit('error', err);
 }
 
 describe('promptCommand', () => {
@@ -104,7 +124,7 @@ describe('promptCommand', () => {
       const exitCodePromise = promptCommand('testprofile_1234', 'write a test');
 
       // Simulate successful IPC connection
-      emitData({ id: 'prompt-1', type: 'success', data: {} });
+      await emitData({ id: 'prompt-1', type: 'success', data: {} });
 
       const exitCode = await exitCodePromise;
       expect(exitCode).toBe(0);
@@ -115,7 +135,7 @@ describe('promptCommand', () => {
       mockSessionFound();
       const exitCodePromise = promptCommand('testprofile_1234', 'hello');
 
-      emitData({ id: 'prompt-1', type: 'success', data: {} });
+      await emitData({ id: 'prompt-1', type: 'success', data: {} });
 
       await exitCodePromise;
       const socket = mockSocketInstance;
@@ -127,7 +147,7 @@ describe('promptCommand', () => {
       mockSessionFound();
       const exitCodePromise = promptCommand('testprofile_1234', 'hello', { enter: false });
 
-      emitData({ id: 'prompt-1', type: 'success', data: {} });
+      await emitData({ id: 'prompt-1', type: 'success', data: {} });
 
       await exitCodePromise;
       const socket = mockSocketInstance;
@@ -159,7 +179,7 @@ describe('promptCommand', () => {
 
       const err = new Error('connect ENOENT') as Error & { code?: string };
       err.code = 'ENOENT';
-      emitError(err);
+      await emitError(err);
 
       const exitCode = await exitCodePromise;
       expect(exitCode).toBe(1);
@@ -174,7 +194,7 @@ describe('promptCommand', () => {
         code?: string;
       };
       err.code = 'ECONNREFUSED';
-      emitError(err);
+      await emitError(err);
 
       const exitCode = await exitCodePromise;
       expect(exitCode).toBe(1);
@@ -186,7 +206,7 @@ describe('promptCommand', () => {
       const exitCodePromise = promptCommand('testprofile_1234', 'hello');
 
       const err = new Error('IPC request timed out');
-      emitError(err);
+      await emitError(err);
 
       const exitCode = await exitCodePromise;
       expect(exitCode).toBe(1);
@@ -197,10 +217,11 @@ describe('promptCommand', () => {
       mockSessionFound();
       const exitCodePromise = promptCommand('testprofile_1234', 'hello');
 
-      if (!mockSocketInstance) {
-        throw new Error('No mock socket instance');
+      while (mockSocketInstances.length === 0) {
+        await new Promise((resolve) => setImmediate(resolve));
       }
-      mockSocketInstance.emit('data', Buffer.from('not valid json\n'));
+      const sock = mockSocketInstances[mockSocketInstances.length - 1];
+      sock.emit('data', Buffer.from('not valid json\n'));
 
       const exitCode = await exitCodePromise;
       expect(exitCode).toBe(1);
@@ -218,7 +239,7 @@ describe('promptCommand', () => {
       mockSessionFound();
       const exitCodePromise = promptCommand('testprofile_1234', 'ping');
 
-      emitData({ id: 'prompt-1', type: 'success', data: {} });
+      await emitData({ id: 'prompt-1', type: 'success', data: {} });
 
       await exitCodePromise;
       const socket = mockSocketInstance;
@@ -231,7 +252,7 @@ describe('promptCommand', () => {
       mockSessionFound();
       const exitCodePromise = promptCommand('testprofile_1234', 'ping', { noSender: true });
 
-      emitData({ id: 'prompt-1', type: 'success', data: {} });
+      await emitData({ id: 'prompt-1', type: 'success', data: {} });
 
       await exitCodePromise;
       const socket = mockSocketInstance;
@@ -247,7 +268,7 @@ describe('promptCommand', () => {
         sender: 'custom_sender',
       });
 
-      emitData({ id: 'prompt-1', type: 'success', data: {} });
+      await emitData({ id: 'prompt-1', type: 'success', data: {} });
 
       await exitCodePromise;
       const socket = mockSocketInstance;
@@ -259,7 +280,7 @@ describe('promptCommand', () => {
       mockSessionFound();
       const exitCodePromise = promptCommand('testprofile_1234', 'ping');
 
-      emitData({ id: 'prompt-1', type: 'success', data: {} });
+      await emitData({ id: 'prompt-1', type: 'success', data: {} });
 
       await exitCodePromise;
       const socket = mockSocketInstance;
@@ -271,7 +292,7 @@ describe('promptCommand', () => {
       mockSessionFound();
       const exitCodePromise = promptCommand('testprofile_1234', 'ping', { noSender: true });
 
-      emitData({ id: 'prompt-1', type: 'success', data: {} });
+      await emitData({ id: 'prompt-1', type: 'success', data: {} });
 
       await exitCodePromise;
       const socket = mockSocketInstance;
@@ -280,11 +301,51 @@ describe('promptCommand', () => {
     });
   });
 
+  describe('version parity blocking', () => {
+    beforeEach(() => {
+      mockSessionFound();
+      (preflightVersionCheck as jest.Mock).mockResolvedValue({
+        ok: true,
+        warnings: [],
+      });
+    });
+
+    afterEach(() => {
+      (preflightVersionCheck as jest.Mock).mockClear();
+    });
+
+    it('major mismatch returns non-zero and does not send IPC request', async () => {
+      (preflightVersionCheck as jest.Mock).mockResolvedValue({
+        ok: false,
+        error: 'Version incompatible',
+        warnings: [],
+      });
+
+      const exitCode = await promptCommand('testprofile_1234', 'hello');
+      expect(exitCode).toBe(1);
+      expect(mockSocketInstances.length).toBe(0);
+    });
+
+    it('same-major older warns and proceeds', async () => {
+      (preflightVersionCheck as jest.Mock).mockResolvedValue({
+        ok: true,
+        warnings: ['Controller is older than CLI.'],
+      });
+
+      const exitCodePromise = promptCommand('testprofile_1234', 'hello');
+      await emitData({ id: 'prompt-1', type: 'success', data: {} });
+      const exitCode = await exitCodePromise;
+
+      expect(exitCode).toBe(0);
+      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('older'));
+    });
+  });
+
   describe('session key fallback', () => {
     it('uses sessionKey when available', async () => {
       const exitCodePromise = promptCommand('testprofile_1234', 'hello');
 
-      emitData({ id: 'prompt-1', type: 'success', data: {} });
+      await emitData({ id: 'prompt-1', type: 'success', data: {} });
 
       await exitCodePromise;
       const socket = mockSocketInstance;
@@ -307,7 +368,7 @@ describe('promptCommand', () => {
 
       const exitCodePromise = promptCommand('codexprof_abcd', 'submit via codex');
 
-      emitData({ id: 'prompt-1', type: 'success', data: {} });
+      await emitData({ id: 'prompt-1', type: 'success', data: {} });
 
       await exitCodePromise;
       const socket = mockSocketInstance;
@@ -322,7 +383,7 @@ describe('promptCommand', () => {
       mockSessionFound({ sessionKey: undefined });
       const exitCodePromise = promptCommand('ses_abcdef123456', 'hello');
 
-      emitData({ id: 'prompt-1', type: 'success', data: {} });
+      await emitData({ id: 'prompt-1', type: 'success', data: {} });
 
       await exitCodePromise;
       const socket = mockSocketInstance;

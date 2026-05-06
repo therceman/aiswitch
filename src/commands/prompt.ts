@@ -4,6 +4,7 @@ import { getIpcEndpointPath } from '../utils/ipc-path';
 import { readLines } from '../controller/protocol';
 import { detectHarness, getHarnessCapabilities } from '../utils/harness';
 import { loadConfig } from '../config/load';
+import { preflightVersionCheck } from './session-ipc';
 
 const IPC_TIMEOUT = 5000;
 
@@ -152,6 +153,16 @@ export async function promptCommand(
     const caps = getHarnessCapabilities(harness);
     submitByte = caps.submitValue;
     submitDelayMs = TEXT_TO_SUBMIT_DELAY_MS;
+  }
+
+  // Preflight version parity check (blocking — hard-stop on major mismatch)
+  const parity = await preflightVersionCheck(endpointPath);
+  if (parity.error) {
+    console.error(`Error: ${parity.error}`);
+    return 1;
+  }
+  for (const w of parity.warnings) {
+    console.warn(`Warning: ${w}`);
   }
 
   try {

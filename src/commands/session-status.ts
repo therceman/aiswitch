@@ -4,6 +4,7 @@ import { getIpcEndpointPath } from '../utils/ipc-path';
 import { loadConfig } from '../config/load';
 import { detectHarness, getHarnessCapabilities } from '../utils/harness';
 import { fetchSessionOutput } from './session-output';
+import { preflightVersionCheck } from './session-ipc';
 
 const IPC_TIMEOUT = 3000;
 
@@ -147,6 +148,16 @@ export async function sessionStatusCommand(
     }
   } catch {
     // Ignore config errors
+  }
+
+  // Preflight version parity check (blocking — hard-stop on major mismatch)
+  const parity = await preflightVersionCheck(endpointPath);
+  if (parity.error) {
+    console.error(`Error: ${parity.error}`);
+    return 1;
+  }
+  for (const w of parity.warnings) {
+    console.warn(`Warning: ${w}`);
   }
 
   const [ping, output, info] = await Promise.all([
