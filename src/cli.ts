@@ -16,6 +16,7 @@ import { promptCommand } from './commands/prompt';
 import { sessionsListCommand } from './commands/sessions-list';
 import { sessionStatusCommand } from './commands/session-status';
 import { sessionFindCommand } from './commands/session-find';
+import { heartbeatCommand } from './commands/heartbeat';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -47,6 +48,7 @@ const KNOWN_COMMANDS = [
   'sessions',
   'session-status',
   'session-find',
+  'heartbeat',
 ];
 const PROFILE_COMMANDS = ['run', 'which', 'doctor', 'start'];
 
@@ -194,6 +196,7 @@ Commands:
   sessions              List saved sessions
   session-status <key>  Show session health and UI status
   session-find <key>    Search recent session output for pattern
+  heartbeat <session>   Send periodic heartbeat to a session
   help                  Show this help message
 
 Examples:
@@ -242,6 +245,10 @@ Session options:
   --json                   Output in JSON format
   --active                 Show only currently active sessions
   --cwd                    Show only sessions started in current directory
+
+Heartbeat options:
+  --no-warn                Suppress version parity warnings
+  --interval <ms>          Heartbeat interval in milliseconds (default: 300000)
 `);
 }
 
@@ -435,6 +442,24 @@ async function runCli(): Promise<void> {
             field,
             noWarn,
           });
+          process.exit(exitCode);
+        }
+
+      case 'heartbeat':
+        if (!profile) {
+          console.error('Error: Session key or ID required');
+          console.error('Usage: airelay heartbeat <session> [--no-warn] [--interval <ms>]');
+          process.exit(1);
+        }
+        {
+          const intervalFlag = flags.interval as string | undefined;
+          const intervalMs = intervalFlag ? parseInt(intervalFlag, 10) : undefined;
+          if (intervalFlag && (isNaN(intervalMs!) || intervalMs! <= 0)) {
+            console.error('Error: --interval must be a positive number (milliseconds).');
+            process.exit(1);
+          }
+          const noWarn = flags['no-warn'] === true;
+          const exitCode = await heartbeatCommand(profile, { noWarn, intervalMs });
           process.exit(exitCode);
         }
 
