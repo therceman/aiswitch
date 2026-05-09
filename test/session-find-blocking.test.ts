@@ -2,6 +2,7 @@ import { sessionFindCommand } from '../src/commands/session-find';
 
 jest.mock('../src/commands/sessions', () => ({
   findSessionByKey: jest.fn(),
+  pruneStaleSessions: jest.fn().mockResolvedValue(0),
 }));
 
 jest.mock('../src/commands/session-viewport', () => ({

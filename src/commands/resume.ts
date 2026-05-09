@@ -1,32 +1,40 @@
 import { runCommand } from './run';
 import { loadConfig } from '../config/load';
-import { findSessionByKey, getSessions } from './sessions';
+import { findSessionByKey, getSessions, SessionEntry, pruneStaleSessions } from './sessions';
 import Enquirer from 'enquirer';
 
+/**
+ * Shared helper to resume a session entry with prompt-capable launch.
+ * Builds resumeArgs, warns about missing metadata, and calls runCommand with PTY.
+ */
+async function resumeSession(profile: string, session: SessionEntry): Promise<number> {
+  const resumeArgs =
+    session.profileArgs && session.profileArgs.length > 0
+      ? session.profileArgs
+      : ['-s', session.id];
+
+  if (!session.profileSessionId) {
+    console.warn(
+      'Warning: This session has no profile session metadata. Restoring with internal id.'
+    );
+    console.warn('Restart the session and save again for better restore support.');
+  }
+
+  return runCommand(profile, resumeArgs, {
+    sessionKey: session.sessionKey,
+    profileSessionId: session.profileSessionId,
+    profileArgs: session.profileArgs,
+    usePty: true,
+  });
+}
+
 export async function resumeCommand(profileOrSessionKey: string): Promise<void> {
+  await pruneStaleSessions();
+
   const found = findSessionByKey(profileOrSessionKey);
 
   if (found) {
-    const session = found.session;
-    // Use profileSessionId + profileArgs for restore when available
-    const resumeArgs =
-      session.profileArgs && session.profileArgs.length > 0
-        ? session.profileArgs
-        : [`-s`, session.id];
-
-    if (!session.profileSessionId) {
-      console.warn(
-        'Warning: This session has no profile session metadata. Restoring with internal id.'
-      );
-      console.warn('Restart the session and save again for better restore support.');
-    }
-
-    const exitCode = await runCommand(found.profile, resumeArgs, {
-      sessionKey: found.session.sessionKey,
-      profileSessionId: session.profileSessionId,
-      profileArgs: session.profileArgs,
-      usePty: true,
-    });
+    const exitCode = await resumeSession(found.profile, found.session);
     process.exit(exitCode);
     return;
   }
@@ -72,23 +80,6 @@ export async function resumeCommand(profileOrSessionKey: string): Promise<void> 
     process.exit(1);
   }
 
-  const resumeArgs =
-    selectedSession.profileArgs && selectedSession.profileArgs.length > 0
-      ? selectedSession.profileArgs
-      : [`-s`, selectedSession.id];
-
-  if (!selectedSession.profileSessionId) {
-    console.warn(
-      'Warning: This session has no profile session metadata. Restoring with internal id.'
-    );
-    console.warn('Restart the session and save again for better restore support.');
-  }
-
-  const exitCode = await runCommand(profileOrSessionKey, resumeArgs, {
-    sessionKey: selectedSession?.sessionKey,
-    profileSessionId: selectedSession.profileSessionId,
-    profileArgs: selectedSession.profileArgs,
-    usePty: true,
-  });
+  const exitCode = await resumeSession(profileOrSessionKey, selectedSession);
   process.exit(exitCode);
 }

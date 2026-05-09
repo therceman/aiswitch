@@ -30,6 +30,7 @@ jest.mock('net', () => ({
 
 jest.mock('../src/commands/sessions', () => ({
   findSessionByKey: jest.fn(),
+  pruneStaleSessions: jest.fn().mockResolvedValue(0),
 }));
 
 jest.mock('../src/config/load', () => ({

@@ -1,4 +1,4 @@
-import { findSessionByKey } from './sessions';
+import { findSessionByKey, pruneStaleSessions } from './sessions';
 import { getIpcEndpointPath } from '../utils/ipc-path';
 import { fetchSessionViewport } from './session-viewport';
 import { preflightVersionCheck } from './session-ipc';
@@ -19,6 +19,8 @@ export async function sessionFindCommand(
     console.error('Error: Pattern is required.');
     return 1;
   }
+
+  await pruneStaleSessions();
 
   const found = findSessionByKey(sessionKeyOrId);
   if (!found) {

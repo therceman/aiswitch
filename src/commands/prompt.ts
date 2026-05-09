@@ -1,5 +1,5 @@
 import net from 'net';
-import { findSessionByKey } from './sessions';
+import { findSessionByKey, pruneStaleSessions } from './sessions';
 import { getIpcEndpointPath } from '../utils/ipc-path';
 import { readLines } from '../controller/protocol';
 import { detectHarness, getHarnessCapabilities } from '../utils/harness';
@@ -154,6 +154,8 @@ export async function promptCommand(
     sender = process.env.AIRELAY_SESSION_KEY;
   }
   const finalText = sender && resolvedText ? `[from=${sender}] ${resolvedText}` : resolvedText;
+
+  await pruneStaleSessions();
 
   const found = findSessionByKey(sessionKeyOrId);
   if (!found) {

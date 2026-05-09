@@ -135,19 +135,31 @@ export function findSessionByKey(
   keyOrId: string
 ): { profile: string; session: SessionEntry } | null {
   const sessions = loadSessions();
+  const matches: { profile: string; session: SessionEntry }[] = [];
 
   for (const [profile, profileSessions] of Object.entries(sessions)) {
     for (const session of profileSessions) {
       if (session.sessionKey && session.sessionKey === keyOrId) {
-        return { profile, session };
-      }
-      if (session.id === keyOrId) {
-        return { profile, session };
+        matches.push({ profile, session });
+      } else if (session.id === keyOrId) {
+        matches.push({ profile, session });
       }
     }
   }
 
-  return null;
+  if (matches.length === 0) return null;
+  if (matches.length === 1) return matches[0];
+
+  // Multiple matches for the same key — prefer entries that
+  // have a controllerEndpoint (active runtime), then by newest lastUsed.
+  const withEndpoint = matches.filter((m) => m.session.controllerEndpoint);
+  if (withEndpoint.length > 0) {
+    withEndpoint.sort((a, b) => (b.session.lastUsed || 0) - (a.session.lastUsed || 0));
+    return withEndpoint[0];
+  }
+
+  matches.sort((a, b) => (b.session.lastUsed || 0) - (a.session.lastUsed || 0));
+  return matches[0];
 }
 
 export function updateSessionControllerEndpoint(keyOrId: string, endpoint: string): boolean {

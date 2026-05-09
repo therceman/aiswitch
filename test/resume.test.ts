@@ -1,5 +1,6 @@
 import { resumeCommand } from '../src/commands/resume';
 import { runCommand } from '../src/commands/run';
+import { pruneStaleSessions } from '../src/commands/sessions';
 
 jest.mock('../src/commands/run', () => ({
   runCommand: jest.fn().mockResolvedValue(0),
@@ -8,6 +9,7 @@ jest.mock('../src/commands/run', () => ({
 jest.mock('../src/commands/sessions', () => ({
   findSessionByKey: jest.fn(),
   getSessions: jest.fn(),
+  pruneStaleSessions: jest.fn().mockResolvedValue(0),
 }));
 
 jest.mock('../src/config/load', () => ({
@@ -151,5 +153,20 @@ describe('resumeCommand', () => {
     await resumeCommand('myprofile_exit');
 
     expect(process.exit).toHaveBeenCalledWith(42);
+  });
+
+  it('calls pruneStaleSessions before resolving session', async () => {
+    (findSessionByKey as jest.Mock).mockReturnValue({
+      profile: 'testprofile',
+      session: {
+        id: 'ses_prune',
+        sessionKey: 'myprofile_prune',
+        lastUsed: Date.now(),
+      },
+    });
+
+    await resumeCommand('myprofile_prune');
+
+    expect(pruneStaleSessions).toHaveBeenCalled();
   });
 });

@@ -4,6 +4,7 @@ import {
   deleteSession,
   removeSessionByKey,
   pruneStaleSessions,
+  findSessionByKey,
 } from '../src/commands/sessions';
 import fs from 'fs';
 import path from 'path';
@@ -205,5 +206,72 @@ describe('sessions', () => {
     expect(entry!.id).toBe('runtime_internal_id_xyz');
     expect(entry!.sessionKey).toBe('my_user_key');
     expect(entry!.id).not.toBe(entry!.sessionKey);
+  });
+
+  describe('findSessionByKey with duplicate sessionKey', () => {
+    beforeEach(() => {
+      // Add two entries sharing the same sessionKey.
+      // Old entry (no controllerEndpoint, old lastUsed).
+      addSession(
+        'test-profile',
+        'runtime_old_001',
+        undefined,
+        'dup_key',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        1000
+      );
+      // New entry (has controllerEndpoint, newer lastUsed).
+      addSession(
+        'test-profile',
+        'runtime_new_002',
+        undefined,
+        'dup_key',
+        '/tmp/sockets/dup_key.sock',
+        undefined,
+        undefined,
+        undefined,
+        2000
+      );
+    });
+
+    it('prefers entry with controllerEndpoint over one without', () => {
+      const found = findSessionByKey('dup_key');
+      expect(found).not.toBeNull();
+      expect(found!.session.id).toBe('runtime_new_002');
+      expect(found!.session.controllerEndpoint).toBe('/tmp/sockets/dup_key.sock');
+    });
+
+    it('returns null for unknown key', () => {
+      const found = findSessionByKey('nonexistent');
+      expect(found).toBeNull();
+    });
+
+    it('finds by id even with duplicate sessionKey', () => {
+      const found = findSessionByKey('runtime_old_001');
+      expect(found).not.toBeNull();
+      expect(found!.session.id).toBe('runtime_old_001');
+    });
+
+    it('matches by sessionKey first, prefers newest lastUsed with endpoint', () => {
+      // Add a third entry with endpoint but older lastUsed
+      addSession(
+        'test-profile',
+        'runtime_mid_003',
+        undefined,
+        'dup_key',
+        '/tmp/sockets/dup_key_old.sock',
+        undefined,
+        undefined,
+        undefined,
+        1500
+      );
+      const found = findSessionByKey('dup_key');
+      // Should still prefer the one with controllerEndpoint + newest lastUsed
+      expect(found).not.toBeNull();
+      expect(found!.session.id).toBe('runtime_new_002');
+    });
   });
 });

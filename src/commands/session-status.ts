@@ -1,5 +1,5 @@
 import net from 'net';
-import { findSessionByKey } from './sessions';
+import { findSessionByKey, pruneStaleSessions } from './sessions';
 import { getIpcEndpointPath } from '../utils/ipc-path';
 import { fetchSessionOutput } from './session-output';
 import { preflightVersionCheck } from './session-ipc';
@@ -128,6 +128,8 @@ export async function sessionStatusCommand(
   sessionKeyOrId: string,
   options?: { json?: boolean; field?: string; noWarn?: boolean }
 ): Promise<number> {
+  await pruneStaleSessions();
+
   const found = findSessionByKey(sessionKeyOrId);
   if (!found) {
     console.error(`Error: Session not found: ${sessionKeyOrId}`);

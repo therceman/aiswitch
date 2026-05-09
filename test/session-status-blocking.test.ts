@@ -2,6 +2,7 @@ import { sessionStatusCommand } from '../src/commands/session-status';
 
 jest.mock('../src/commands/sessions', () => ({
   findSessionByKey: jest.fn(),
+  pruneStaleSessions: jest.fn().mockResolvedValue(0),
 }));
 
 jest.mock('../src/commands/session-output', () => ({
